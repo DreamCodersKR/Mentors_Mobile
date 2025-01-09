@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mentors_app/widgets/splash_screen.dart';
 // import 'package:google_fonts/google_fonts.dart';
 
 void main() {
@@ -67,7 +68,7 @@ class MainScreen extends StatelessWidget {
               const SizedBox(height: 20),
               // 환영 텍스트
               Text(
-                '환영합니다',
+                'dddd',
                 // style: GoogleFonts.notoSans(
                 //   fontSize: 32,
                 //   fontWeight: FontWeight.bold,
