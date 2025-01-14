@@ -16,6 +16,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  # flutter_native_splash: ^2.2.18
+
+# flutter_native_splash:
+#   color: "#B794F4"
+#   android: true
+#   ios: true
+#   web: false
 
 flutter:
   uses-material-design: true

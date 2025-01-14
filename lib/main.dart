@@ -14,16 +14,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mentors',
       theme: ThemeData(
-        primaryColor: const Color(0xFF8B5CF6),
+        primaryColor: const Color(0xFFB794F4),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF8B5CF6),
-          primary: const Color(0xFF8B5CF6),
-          secondary: const Color(0xFF3B82F6),
+          seedColor: const Color(0xFFB794F4),
+          primary: const Color(0xFFB794F4),
+          secondary: const Color(0xFF9575CD),
         ),
-        // textTheme: GoogleFonts.notoSansTextTheme(),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      home: const SplashScreen(),
     );
   }
 }
@@ -40,8 +39,8 @@ class MainScreen extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF8B5CF6).withOpacity(0.8),
-              const Color(0xFF3B82F6).withOpacity(0.8),
+              const Color(0xFFF0E6FF).withAlpha(190),
+              const Color(0xFFB794F4).withAlpha(190),
             ],
           ),
         ),
