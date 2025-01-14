@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mentors_app/main.dart';
+import 'package:mentors_app/screens/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,8 +13,7 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _logoPositionAnimation;
-  late Animation<Color?> _backgroundColorAnimation;
-  bool _isLogoAnimationCompleted = false; // 로고 애니메이션 완료 여부
+  bool _isLogoAnimationCompleted = false;
 
   @override
   void initState() {
@@ -22,7 +21,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     // AnimationController
     _controller = AnimationController(
-      duration: const Duration(seconds: 3), // 로고 확대 애니메이션 시간
+      duration: const Duration(seconds: 3),
       vsync: this,
     );
 
@@ -34,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // 로고 위치 이동 애니메이션 (위로 이동)
+    // 로고 위치 이동 애니메이션
     _logoPositionAnimation = Tween<double>(begin: 0, end: -20).animate(
       CurvedAnimation(
         parent: _controller,
@@ -42,30 +41,21 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // 배경색 변화 애니메이션
-    _backgroundColorAnimation = ColorTween(
-      begin: const Color(0xFFF0E6FF),
-      end: const Color(0xFFB794F4),
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.linear,
-      ),
-    );
-
-    // 로고 애니메이션 실행
+    // 애니메이션 실행
     _controller.forward().then((_) {
       setState(() {
-        _isLogoAnimationCompleted = true; // 로고 애니메이션 완료
+        _isLogoAnimationCompleted = true;
       });
     });
 
     // 스플래쉬 화면 종료
-    Future.delayed(const Duration(seconds: 6), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-      );
+    Future.delayed(const Duration(seconds: 7), () {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => MainScreen()),
+        );
+      }
     });
   }
 
@@ -79,22 +69,22 @@ class _SplashScreenState extends State<SplashScreen>
     const String text = "Mentors";
 
     return Row(
-      mainAxisSize: MainAxisSize.min, // 텍스트를 중앙 정렬
+      mainAxisSize: MainAxisSize.min,
       children: List.generate(
         text.length,
         (index) {
           return TweenAnimationBuilder(
             tween: Tween<Offset>(
-              begin: const Offset(0, 1), // 아래에서 시작
-              end: Offset.zero, // 원래 위치
+              begin: const Offset(0, 1),
+              end: Offset.zero,
             ),
-            duration: Duration(milliseconds: 1000 + (index * 200)), // 순차적 등장
-            curve: Curves.easeOutCubic, // 부드러운 애니메이션
+            duration: Duration(milliseconds: 1000 + (index * 200)),
+            curve: Curves.easeOutCubic,
             builder: (context, Offset offset, child) {
               return Opacity(
-                opacity: offset.dy == 0 ? 1.0 : 0.8, // 위치에 따라 투명도 조정
+                opacity: offset.dy == 0 ? 1.0 : 0.8,
                 child: Transform.translate(
-                  offset: offset * 50, // 텍스트 이동 거리
+                  offset: offset * 50,
                   child: Text(
                     text[index],
                     style: const TextStyle(
@@ -121,46 +111,39 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Scaffold(
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFF0E6FF),
-                  Color(0xFFB794F4),
-                ],
-              ),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // 로고 위치와 크기 애니메이션
-                  Transform.translate(
-                    offset: Offset(0, _logoPositionAnimation.value),
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: Image.asset(
-                        'assets/logo.png',
-                        width: 120,
-                        height: 120,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // 로고 애니메이션이 끝난 후 텍스트 애니메이션 실행
-                  if (_isLogoAnimationCompleted) _buildAnimatedText(),
-                ],
-              ),
-            ),
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF0E6FF),
+              Color(0xFFB794F4),
+            ],
           ),
-        );
-      },
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Transform.translate(
+                offset: Offset(0, _logoPositionAnimation.value),
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Image.asset(
+                    'assets/logo.png',
+                    width: 120,
+                    height: 120,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_isLogoAnimationCompleted) _buildAnimatedText(),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
