@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/select_role_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/board_item.dart';
@@ -13,13 +12,25 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
   void navigateToLogin(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ),
-    );
+    Navigator.pushNamed(context, '/login');
+  }
+
+  void _onTabSelected(int index) {
+    if (index == 0) {
+      Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+    } else if (index == 1) {
+      Navigator.pushNamed(context, '/board').then((_) {
+        // '_' 는 콜백 함수의 매개변수 -> 값을 사용하지 않는다의 표현 Navigator.pushNamed는 Future를 반환하는데 then은 Future가 완료될 때 호출되는 콜백함수
+        setState(() {
+          _currentIndex = 0;
+        });
+      });
+    } else {
+      navigateToLogin(context);
+    }
   }
 
   @override
@@ -35,11 +46,10 @@ class _MainScreenState extends State<MainScreen> {
         ),
         backgroundColor: const Color(0xFFE2D4FF),
         elevation: 0,
+        automaticallyImplyLeading: false, // 메인 화면에서 뒤로가기 버튼 제거
         actions: [
           IconButton(
-            onPressed: () => {
-              navigateToLogin(context),
-            },
+            onPressed: () => navigateToLogin(context),
             icon: Stack(
               children: [
                 const Icon(Icons.notifications, color: Colors.black),
@@ -82,106 +92,90 @@ class _MainScreenState extends State<MainScreen> {
                   CategoryIcon(
                     label: "IT/전문기술",
                     icon: Icons.computer,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "IT/전문기술"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "IT/전문기술"),
+                      ),
+                    ),
                   ),
                   CategoryIcon(
                     label: "예술",
                     icon: Icons.palette,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "예술"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "예술"),
+                      ),
+                    ),
                   ),
                   CategoryIcon(
                     label: "학업/교육",
                     icon: Icons.menu_book,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "학업/교육"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "학업/교육"),
+                      ),
+                    ),
                   ),
                   CategoryIcon(
                     label: "마케팅",
                     icon: Icons.business,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "마케팅"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "마케팅"),
+                      ),
+                    ),
                   ),
                   CategoryIcon(
                     label: "자기개발",
                     icon: Icons.edit,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "자기개발"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "자기개발"),
+                      ),
+                    ),
                   ),
                   CategoryIcon(
                     label: "취업&커리어",
                     icon: Icons.work,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "취업&커리어"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "취업&커리어"),
+                      ),
+                    ),
                   ),
                   CategoryIcon(
                     label: "금융/경제",
                     icon: Icons.monetization_on,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "금융/경제"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "금융/경제"),
+                      ),
+                    ),
                   ),
                   CategoryIcon(
                     label: "기타",
                     icon: Icons.more_horiz,
-                    onTap: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "기타"),
-                        ),
-                      )
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MentorMenteeScreen(categoryName: "기타"),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -207,7 +201,6 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              // 광고 배너 영역
               Center(
                 child: const BannerAdWidget(),
               ),
@@ -216,18 +209,12 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
+        currentIndex: _currentIndex,
         onTap: (index) {
-          if (index == 0) {
-            Navigator.pushNamedAndRemoveUntil(
-                context, '/main', (route) => false);
-          }
-          if (index == 1) {
-            Navigator.pushNamed(context, '/board');
-          }
-          if (index == 2 || index == 3) {
-            Navigator.pushNamed(context, '/login');
-          }
+          setState(() {
+            _currentIndex = index;
+          });
+          _onTabSelected(index);
         },
         selectedItemColor: const Color(0xFFB794F4),
         unselectedItemColor: Colors.grey,
