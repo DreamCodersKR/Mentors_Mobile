@@ -19,7 +19,10 @@ class _JoinScreenState extends State<JoinScreen> {
       appBar: AppBar(
         title: const Text(
           '회원가입',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: const Color(0xFFE2D4FF),
         elevation: 0,
@@ -237,7 +240,7 @@ class _JoinScreenState extends State<JoinScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Color(0xFF9575CD),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 40,
                       vertical: 15,

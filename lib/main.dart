@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:mentors_app/screens/board_screen.dart';
+import 'package:mentors_app/screens/login_screen.dart';
+import 'package:mentors_app/screens/main_screen.dart';
 import 'package:mentors_app/screens/splash_screen.dart';
 
 void main() {
@@ -24,7 +27,13 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const SplashScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashScreen(),
+        '/main': (context) => const MainScreen(),
+        '/board': (context) => const BoardScreen(),
+        '/login': (context) => const LoginScreen(),
+      },
     );
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:mentors_app/screens/board_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
+import 'package:mentors_app/screens/select_role_screen.dart';
+import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/board_item.dart';
 import 'package:mentors_app/widgets/category_icon.dart';
 
@@ -12,41 +15,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  BannerAd? _bannerAd; // 배너 광고 객체
-  bool _isAdLoaded = false; // 광고 로딩 상태
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBannerAd(); // 배너 광고 로드
-  }
-
-  void _loadBannerAd() {
-    _bannerAd = BannerAd(
-      adUnitId:
-          'ca-app-pub-3940256099942544/6300978111', // AdMob 광고 단위 ID (일단 테스트용)
-      size: AdSize.banner,
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (Ad ad) {
-          setState(() {
-            _isAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (Ad ad, LoadAdError error) {
-          ad.dispose();
-          debugPrint('Ad failed to load: $error');
-        },
-      ),
-    )..load();
-  }
-
-  @override
-  void dispose() {
-    _bannerAd?.dispose(); // 광고 메모리 해제
-    super.dispose();
-  }
-
   void navigateToLogin(BuildContext context) {
     Navigator.push(
       context,
@@ -67,7 +35,7 @@ class _MainScreenState extends State<MainScreen> {
             color: Colors.black,
           ),
         ),
-        backgroundColor: const Color(0xFFE2D4FF), // 상단 앱바 배경색
+        backgroundColor: const Color(0xFFE2D4FF),
         elevation: 0,
         actions: [
           IconButton(
@@ -116,42 +84,106 @@ class _MainScreenState extends State<MainScreen> {
                   CategoryIcon(
                     label: "IT/전문기술",
                     icon: Icons.computer,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "IT/전문기술"),
+                        ),
+                      )
+                    },
                   ),
                   CategoryIcon(
                     label: "예술",
                     icon: Icons.palette,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "예술"),
+                        ),
+                      )
+                    },
                   ),
                   CategoryIcon(
                     label: "학업/교육",
                     icon: Icons.menu_book,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "학업/교육"),
+                        ),
+                      )
+                    },
                   ),
                   CategoryIcon(
                     label: "마케팅",
                     icon: Icons.business,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "마케팅"),
+                        ),
+                      )
+                    },
                   ),
                   CategoryIcon(
                     label: "자기개발",
                     icon: Icons.edit,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "자기개발"),
+                        ),
+                      )
+                    },
                   ),
                   CategoryIcon(
                     label: "취업&커리어",
                     icon: Icons.work,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "취업&커리어"),
+                        ),
+                      )
+                    },
                   ),
                   CategoryIcon(
                     label: "금융/경제",
                     icon: Icons.monetization_on,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "금융/경제"),
+                        ),
+                      )
+                    },
                   ),
                   CategoryIcon(
                     label: "기타",
                     icon: Icons.more_horiz,
-                    onTap: () => navigateToLogin(context),
+                    onTap: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MentorMenteeScreen(categoryName: "기타"),
+                        ),
+                      )
+                    },
                   ),
                 ],
               ),
@@ -178,14 +210,9 @@ class _MainScreenState extends State<MainScreen> {
               ),
               const SizedBox(height: 30),
               // 광고 배너 영역
-              if (_isAdLoaded)
-                Center(
-                  child: SizedBox(
-                    width: _bannerAd!.size.width.toDouble(),
-                    height: _bannerAd!.size.height.toDouble(),
-                    child: AdWidget(ad: _bannerAd!),
-                  ),
-                ),
+              Center(
+                child: const BannerAdWidget(),
+              ),
             ],
           ),
         ),
@@ -193,8 +220,15 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         onTap: (index) {
-          if (index != 0) {
-            navigateToLogin(context);
+          if (index == 0) {
+            Navigator.pushNamedAndRemoveUntil(
+                context, '/main', (route) => false);
+          }
+          if (index == 1) {
+            Navigator.pushNamed(context, '/board');
+          }
+          if (index == 2 || index == 3) {
+            Navigator.pushNamed(context, '/login');
           }
         },
         selectedItemColor: const Color(0xFFB794F4),
