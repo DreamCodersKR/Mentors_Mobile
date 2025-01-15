@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:mentors_app/screens/board_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/select_role_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
