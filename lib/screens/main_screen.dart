@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart'; // 광고 SDK 추가
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:mentors_app/screens/login_screen.dart';
+import 'package:mentors_app/widgets/board_item.dart';
+import 'package:mentors_app/widgets/category_icon.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -44,6 +47,15 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  void navigateToLogin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,12 +67,12 @@ class _MainScreenState extends State<MainScreen> {
             color: Colors.black,
           ),
         ),
-        backgroundColor: const Color(0xFFF0E6FF), // 상단 앱바 배경색
+        backgroundColor: const Color(0xFFE2D4FF), // 상단 앱바 배경색
         elevation: 0,
         actions: [
           IconButton(
-            onPressed: () {
-              // 알림 버튼 동작
+            onPressed: () => {
+              navigateToLogin(context),
             },
             icon: Stack(
               children: [
@@ -100,15 +112,47 @@ class _MainScreenState extends State<MainScreen> {
                 mainAxisSpacing: 16,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                children: const [
-                  _CategoryIcon(label: "IT/전문기술", icon: Icons.computer),
-                  _CategoryIcon(label: "예술", icon: Icons.palette),
-                  _CategoryIcon(label: "학업/교육", icon: Icons.menu_book),
-                  _CategoryIcon(label: "마케팅", icon: Icons.business),
-                  _CategoryIcon(label: "자기개발", icon: Icons.edit),
-                  _CategoryIcon(label: "취업&커리어", icon: Icons.work),
-                  _CategoryIcon(label: "금융/경제", icon: Icons.monetization_on),
-                  _CategoryIcon(label: "기타", icon: Icons.more_horiz),
+                children: [
+                  CategoryIcon(
+                    label: "IT/전문기술",
+                    icon: Icons.computer,
+                    onTap: () => navigateToLogin(context),
+                  ),
+                  CategoryIcon(
+                    label: "예술",
+                    icon: Icons.palette,
+                    onTap: () => navigateToLogin(context),
+                  ),
+                  CategoryIcon(
+                    label: "학업/교육",
+                    icon: Icons.menu_book,
+                    onTap: () => navigateToLogin(context),
+                  ),
+                  CategoryIcon(
+                    label: "마케팅",
+                    icon: Icons.business,
+                    onTap: () => navigateToLogin(context),
+                  ),
+                  CategoryIcon(
+                    label: "자기개발",
+                    icon: Icons.edit,
+                    onTap: () => navigateToLogin(context),
+                  ),
+                  CategoryIcon(
+                    label: "취업&커리어",
+                    icon: Icons.work,
+                    onTap: () => navigateToLogin(context),
+                  ),
+                  CategoryIcon(
+                    label: "금융/경제",
+                    icon: Icons.monetization_on,
+                    onTap: () => navigateToLogin(context),
+                  ),
+                  CategoryIcon(
+                    label: "기타",
+                    icon: Icons.more_horiz,
+                    onTap: () => navigateToLogin(context),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
@@ -123,11 +167,12 @@ class _MainScreenState extends State<MainScreen> {
               Column(
                 children: List.generate(
                   4,
-                  (i) => const _BoardItem(
+                  (i) => BoardItem(
                     title: "Title",
                     category: "스터디 구인",
                     date: "2023-01-01",
                     likes: "추천 : 123",
+                    onTap: () => navigateToLogin(context),
                   ),
                 ),
               ),
@@ -148,7 +193,9 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         onTap: (index) {
-          // 네비게이션 바 동작
+          if (index != 0) {
+            navigateToLogin(context);
+          }
         },
         selectedItemColor: const Color(0xFFB794F4),
         unselectedItemColor: Colors.grey,
@@ -158,89 +205,6 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: "채팅방"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "마이페이지"),
         ],
-      ),
-    );
-  }
-}
-
-class _CategoryIcon extends StatelessWidget {
-  final String label;
-  final IconData icon;
-
-  const _CategoryIcon({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 40, color: const Color(0xFFB794F4)),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12),
-        ),
-      ],
-    );
-  }
-}
-
-class _BoardItem extends StatelessWidget {
-  final String title;
-  final String category;
-  final String date;
-  final String likes;
-
-  const _BoardItem({
-    required this.title,
-    required this.category,
-    required this.date,
-    required this.likes,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  category,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  date,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                Text(
-                  likes,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
