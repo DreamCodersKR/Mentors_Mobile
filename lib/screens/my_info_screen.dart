@@ -95,7 +95,7 @@ class MyInfoScreen extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 3, // '내정보'가 네비게이션바의 네 번째 탭이라고 가정
+        currentIndex: 3,
         onTabSelected: (index) {
           if (index == 0) {
             Navigator.pushNamedAndRemoveUntil(
