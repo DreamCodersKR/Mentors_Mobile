@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mentors_app/screens/search_screen.dart';
+import 'package:mentors_app/screens/write_board_screen.dart';
 
 class BoardScreen extends StatelessWidget {
   const BoardScreen({super.key});
@@ -17,13 +19,23 @@ class BoardScreen extends StatelessWidget {
         actions: [
           IconButton(
             onPressed: () {
-              // 검색 기능 개발필요
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SearchScreen(),
+                ),
+              );
             },
             icon: const Icon(Icons.search, color: Colors.black),
           ),
           IconButton(
             onPressed: () {
-              // 글 작성 기능 개발필요
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => WriteBoardScreen(),
+                ),
+              );
             },
             icon: const Icon(Icons.edit, color: Colors.black),
           ),
