@@ -27,7 +27,6 @@ class LoginScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 로고 이미지
               Column(
                 children: [
                   Image.asset(

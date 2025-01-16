@@ -118,7 +118,7 @@ class BoardDetailScreen extends StatelessWidget {
             const SizedBox(height: 10),
             Expanded(
               child: ListView.builder(
-                itemCount: 3, // 임시 댓글 수
+                itemCount: 3,
                 itemBuilder: (context, index) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

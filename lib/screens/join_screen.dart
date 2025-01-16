@@ -66,7 +66,6 @@ class _JoinScreenState extends State<JoinScreen> {
               const SizedBox(
                 height: 20,
               ),
-
               TextFormField(
                 decoration: InputDecoration(
                   labelText: '이메일',
@@ -80,7 +79,6 @@ class _JoinScreenState extends State<JoinScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               TextFormField(
                 obscureText: true,
                 decoration: InputDecoration(
@@ -95,7 +93,6 @@ class _JoinScreenState extends State<JoinScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               TextFormField(
                 obscureText: true,
                 decoration: InputDecoration(
@@ -110,8 +107,6 @@ class _JoinScreenState extends State<JoinScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // 닉네임
               TextFormField(
                 decoration: InputDecoration(
                   labelText: '닉네임',
@@ -125,8 +120,6 @@ class _JoinScreenState extends State<JoinScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // 이름 및 생년월일
               Row(
                 children: [
                   Expanded(
@@ -150,8 +143,6 @@ class _JoinScreenState extends State<JoinScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-
-              // 성별 및 연락처
               Row(
                 children: [
                   Expanded(
@@ -199,8 +190,6 @@ class _JoinScreenState extends State<JoinScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-
-              // 시니어/주니어 여부
               const Text("시니어 / 주니어 여부"),
               Row(
                 children: [
@@ -231,7 +220,6 @@ class _JoinScreenState extends State<JoinScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-
               Center(
                 child: ElevatedButton(
                   onPressed: () {

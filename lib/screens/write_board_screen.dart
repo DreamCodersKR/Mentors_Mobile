@@ -38,7 +38,6 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
       return;
     }
 
-    // 게시글 제출 로직
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("게시글이 성공적으로 작성되었습니다.")),
     );
@@ -139,7 +138,6 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 카테고리 선택
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               decoration: const InputDecoration(
@@ -159,7 +157,6 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
               },
             ),
             const SizedBox(height: 16),
-            // 제목 입력
             TextField(
               controller: _titleController,
               decoration: const InputDecoration(
@@ -168,7 +165,6 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // 내용 입력
             Expanded(
               child: TextField(
                 controller: _contentController,

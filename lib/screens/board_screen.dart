@@ -46,7 +46,7 @@ class BoardScreen extends StatelessWidget {
         body: Padding(
           padding: const EdgeInsets.all(8.0),
           child: ListView.separated(
-            itemCount: 10, // 임시 게시글 수
+            itemCount: 10,
             separatorBuilder: (context, index) => const Divider(),
             itemBuilder: (context, index) {
               return ListTile(
@@ -105,7 +105,6 @@ class BoardScreen extends StatelessWidget {
                   ],
                 ),
                 onTap: () {
-                  // 게시글 상세보기 이동 개발필요
                   Navigator.push(
                       context,
                       MaterialPageRoute(
