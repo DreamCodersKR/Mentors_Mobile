@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/screens/search_screen.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
 
@@ -103,6 +104,17 @@ class BoardScreen extends StatelessWidget {
               ),
               onTap: () {
                 // 게시글 상세보기 이동 개발필요
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BoardDetailScreen(
+                        title: '글제목 $index',
+                        content: '글 내용 나옴',
+                        author: '닉네임 나옴',
+                        likes: 111,
+                        views: 12344,
+                      ),
+                    ));
               },
             );
           },
