@@ -20,17 +20,25 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onTabSelected(int index) {
-    if (index == 0) {
-      Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
-    } else if (index == 1) {
+    if (index == 1) {
       Navigator.pushNamed(context, '/board').then((_) {
         // '_' 는 콜백 함수의 매개변수 -> 값을 사용하지 않는다의 표현 Navigator.pushNamed는 Future를 반환하는데 then은 Future가 완료될 때 호출되는 콜백함수
         setState(() {
           _currentIndex = 0;
         });
       });
-    } else {
-      navigateToLogin(context);
+    } else if (index == 2) {
+      Navigator.pushNamed(context, '/chat').then((_) {
+        setState(() {
+          _currentIndex = 0;
+        });
+      });
+    } else if (index == 3) {
+      Navigator.pushNamed(context, '/myInfo').then((_) {
+        setState(() {
+          _currentIndex = 0;
+        });
+      });
     }
   }
 

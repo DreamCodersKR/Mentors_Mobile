@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen>
     });
 
     // 스플래쉬 화면 종료
-    Future.delayed(const Duration(seconds: 7), () {
+    Future.delayed(const Duration(seconds: 6), () {
       if (mounted) {
         Navigator.pushReplacement(
           context,
