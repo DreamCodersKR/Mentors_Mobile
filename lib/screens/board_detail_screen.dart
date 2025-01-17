@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class BoardDetailScreen extends StatelessWidget {
+  final String boardId;
   final String title;
   final String content;
   final String author;
@@ -9,6 +11,7 @@ class BoardDetailScreen extends StatelessWidget {
 
   const BoardDetailScreen({
     super.key,
+    required this.boardId,
     required this.title,
     required this.content,
     required this.author,
@@ -108,78 +111,84 @@ class BoardDetailScreen extends StatelessWidget {
             ),
             const Divider(thickness: 1),
             const SizedBox(height: 10),
-            const Text(
-              "댓글 3",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 10),
             Expanded(
-              child: ListView.builder(
-                itemCount: 3,
-                itemBuilder: (context, index) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('boards')
+                    .doc(boardId)
+                    .collection('comments')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text("오류가 발생했습니다. 다시 시도해주세요."),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        "댓글이 없습니다.",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  }
+
+                  final comments = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    itemCount: comments.length,
+                    itemBuilder: (context, index) {
+                      final comment = comments[index];
+                      final authorId = comment['authorId'] ?? '익명';
+                      final content = comment['content'] ?? '내용 없음';
+                      final createdAt =
+                          (comment['createdAt'] as Timestamp?)?.toDate();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const CircleAvatar(
-                            backgroundColor: Colors.grey,
-                            child: Icon(Icons.person, color: Colors.white),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Row(
+                              const CircleAvatar(
+                                backgroundColor: Colors.grey,
+                                child: Icon(Icons.person, color: Colors.white),
+                              ),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    "닉네임",
-                                    style: TextStyle(
+                                  Text(
+                                    authorId,
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
                                   ),
-                                  if (index == 0)
-                                    const Padding(
-                                      padding: EdgeInsets.only(left: 4.0),
-                                      child: Text(
-                                        "작성자",
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                        ),
-                                      ),
+                                  Text(
+                                    content,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  if (createdAt != null)
+                                    Text(
+                                      '${createdAt.year}-${createdAt.month}-${createdAt.day}',
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.grey),
                                     ),
                                 ],
                               ),
-                              const Text(
-                                "댓글 내용",
-                                style: TextStyle(fontSize: 14),
-                              ),
                             ],
                           ),
-                          const Spacer(),
-                          Column(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.thumb_up, size: 16),
-                                onPressed: () {
-                                  // 댓글 좋아요 로직
-                                },
-                              ),
-                              const Text(
-                                "1",
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
+                          const Divider(thickness: 1),
                         ],
-                      ),
-                      const Divider(thickness: 1),
-                    ],
+                      );
+                    },
                   );
                 },
               ),

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
@@ -98,26 +99,27 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _checkAndNavigateBoard(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+  // void _checkAndNavigateBoard(BuildContext context) {
+  //   final user = FirebaseAuth.instance.currentUser;
 
-    if (user == null) {
-      Navigator.pushNamed(context, '/login');
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => BoardDetailScreen(
-            title: "게시글 테스트",
-            content: "글내용",
-            author: "작성자",
-            likes: 0,
-            views: 0,
-          ),
-        ),
-      );
-    }
-  }
+  //   if (user == null) {
+  //     Navigator.pushNamed(context, '/login');
+  //   } else {
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (context) => BoardDetailScreen(
+  //           boardId: '',
+  //           title: "게시글 테스트",
+  //           content: "글내용",
+  //           author: "작성자",
+  //           likes: 0,
+  //           views: 0,
+  //         ),
+  //       ),
+  //     );
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -231,17 +233,72 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Column(
-                  children: List.generate(
-                    4,
-                    (i) => BoardItem(
-                      title: "Title",
-                      category: "스터디 구인",
-                      date: "2023-01-01",
-                      likes: "추천 : 123",
-                      onTap: () => _checkAndNavigateBoard(context),
-                    ),
-                  ),
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('boards')
+                      .where('isDeleted', isEqualTo: false)
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text("오류가 발생했습니다. 다시 시도해주세요."),
+                      );
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          "게시글이 없습니다.",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final boardDocs = snapshot.data!.docs;
+
+                    return Column(
+                      children: boardDocs.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final title = data['title'] ?? '제목 없음';
+                        final category = data['category'] ?? '카테고리 없음';
+                        final createdAt =
+                            (data['createdAt'] as Timestamp?)?.toDate();
+                        final formattedDate = createdAt != null
+                            ? "${createdAt.year}-${createdAt.month}-${createdAt.day}"
+                            : "날짜 없음";
+
+                        return BoardItem(
+                          title: title,
+                          category: category,
+                          date: formattedDate,
+                          likes: "${data['likeCount'] ?? 0} 추천",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BoardDetailScreen(
+                                  boardId: doc.id,
+                                  title: title,
+                                  content: data['content'] ?? '',
+                                  author: data['authorId'] ?? '익명',
+                                  likes: data['likeCount'] ?? 0,
+                                  views: data['views'] ?? 0,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
                 const SizedBox(height: 30),
                 Center(
