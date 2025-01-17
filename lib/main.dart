@@ -1,5 +1,7 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:mentors_app/firebase_options.dart';
 import 'package:mentors_app/screens/board_screen.dart';
 import 'package:mentors_app/screens/chat_list_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
@@ -7,9 +9,12 @@ import 'package:mentors_app/screens/main_screen.dart';
 import 'package:mentors_app/screens/my_info_screen.dart';
 import 'package:mentors_app/screens/splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MobileAds.instance.initialize();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 

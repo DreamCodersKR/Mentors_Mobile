@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1003380789238",
+    "project_id": "mentors-app-fb958",
+    "storage_bucket": "mentors-app-fb958.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1003380789238:android:0d5cd186c0d909c5e7c1d7",
+        "android_client_info": {
+          "package_name": "com.example.mentors_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAh5q10PCQinB02mMh0-BQ6gLqrcgmmOHg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
