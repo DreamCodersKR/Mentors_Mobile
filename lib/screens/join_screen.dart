@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class JoinScreen extends StatefulWidget {
@@ -8,10 +10,93 @@ class JoinScreen extends StatefulWidget {
 }
 
 class _JoinScreenState extends State<JoinScreen> {
-  final formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
 
-  String gender = "";
-  String seniorOrJunior = "";
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  final TextEditingController _nicknameController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _birthdateController = TextEditingController();
+  final TextEditingController _telController = TextEditingController();
+
+  String _gender = "";
+  String _seniorOrJunior = "";
+  bool _isLoading = false;
+
+  Future<void> _registerUser() async {
+    if (_formKey.currentState?.validate() != true) return;
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("비밀번호가 일치하지 않습니다.")),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Firebase Authentication을 통한 사용자 생성
+      final userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      final user = userCredential.user;
+
+      // Firestore에 사용자 추가 정보 저장
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          "user_name": _nameController.text.trim(),
+          "user_email": user.email,
+          "user_gender": _gender,
+          "birthdate": _birthdateController.text.trim(),
+          "role": _seniorOrJunior,
+          "profilePhoto": "", // 프로필 사진 URL 추가 가능
+          "createdAt": FieldValue.serverTimestamp(),
+          "isDeleted": false,
+        });
+
+        // Firebase User Profile 닉네임 업데이트
+        await user.updateDisplayName(_nicknameController.text.trim());
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("회원가입이 완료되었습니다.")),
+        );
+
+        Navigator.pushReplacementNamed(context, '/main');
+      }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = '회원가입에 실패했습니다.';
+      if (e.code == 'email-already-in-use') {
+        errorMessage = '이미 사용 중인 이메일입니다.';
+      } else if (e.code == 'weak-password') {
+        errorMessage = '비밀번호는 최소 6자리 이상이어야 합니다.';
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류 발생: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,19 +104,15 @@ class _JoinScreenState extends State<JoinScreen> {
       appBar: AppBar(
         title: const Text(
           '회원가입',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFFE2D4FF),
-        elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(10.0),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
-          key: formKey,
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -42,165 +123,141 @@ class _JoinScreenState extends State<JoinScreen> {
                       radius: 40,
                       backgroundColor: Colors.grey[300],
                       child: IconButton(
-                        icon: const Icon(
-                          Icons.add_a_photo,
-                          size: 30,
-                        ),
+                        icon: const Icon(Icons.add_a_photo, size: 30),
                         onPressed: () {
-                          // 프로필 사진 기능 추가해야함
+                          // 프로필 사진 추가 로직
                         },
                       ),
                     ),
-                    const SizedBox(
-                      height: 8,
-                    ),
+                    const SizedBox(height: 8),
                     const Text(
                       "프로필사진",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(
-                height: 20,
-              ),
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: '이메일',
-                  suffix: TextButton(
-                    onPressed: () {
-                      // 이메일 중복 확인 로직
-                    },
-                    child: const Text("이메일 중복확인 버튼"),
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
-              ),
               const SizedBox(height: 20),
               TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: '이메일'),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '이메일을 입력해주세요.';
+                  }
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                    return '유효한 이메일 주소를 입력해주세요.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                decoration: const InputDecoration(labelText: '비밀번호'),
                 obscureText: true,
-                decoration: InputDecoration(
-                  labelText: '비밀번호',
-                  suffix: TextButton(
-                    onPressed: () {
-                      // 비밀번호 확인 로직
-                    },
-                    child: const Text("확인 버튼"),
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '비밀번호를 입력해주세요.';
+                  }
+                  if (value.length < 6) {
+                    return '비밀번호는 최소 6자리 이상이어야 합니다.';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               TextFormField(
+                controller: _confirmPasswordController,
+                decoration: const InputDecoration(labelText: '비밀번호 확인'),
                 obscureText: true,
-                decoration: InputDecoration(
-                  labelText: '비밀번호 확인',
-                  suffix: TextButton(
-                    onPressed: () {
-                      // 비밀번호 확인 로직
-                    },
-                    child: const Text("확인 버튼"),
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '비밀번호를 다시 입력해주세요.';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               TextFormField(
-                decoration: InputDecoration(
-                  labelText: '닉네임',
-                  suffix: TextButton(
-                    onPressed: () {
-                      // 닉네임 중복 확인 로직
-                    },
-                    child: const Text("중복확인 버튼"),
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
+                controller: _nicknameController,
+                decoration: const InputDecoration(labelText: '닉네임'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '닉네임을 입력해주세요.';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: '이름',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: '생년월일',
-                        hintText: 'YYYY-MM-DD',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: '이름'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '이름을 입력해주세요.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _birthdateController,
+                decoration:
+                    const InputDecoration(labelText: '생년월일 (YYYY-MM-DD)'),
+                keyboardType: TextInputType.datetime,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '생년월일을 입력해주세요.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _gender.isNotEmpty ? _gender : null,
+                decoration: const InputDecoration(labelText: '성별'),
+                items: [
+                  DropdownMenuItem(value: '남자', child: Text('남자')),
+                  DropdownMenuItem(value: '여자', child: Text('여자')),
                 ],
+                onChanged: (value) {
+                  setState(() {
+                    _gender = value ?? '';
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '성별을 선택해주세요.';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("성별"),
-                        Row(
-                          children: [
-                            Radio(
-                              value: "남자",
-                              groupValue: gender,
-                              onChanged: (value) {
-                                setState(() {
-                                  gender = value!;
-                                });
-                              },
-                            ),
-                            const Text("남자"),
-                            Radio(
-                              value: "여자",
-                              groupValue: gender,
-                              onChanged: (value) {
-                                setState(() {
-                                  gender = value!;
-                                });
-                              },
-                            ),
-                            const Text("여자"),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: '연락처',
-                        hintText: '010-1234-5678',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _telController,
+                decoration: const InputDecoration(labelText: '연락처'),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '연락처를 입력해주세요.';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               const Text("시니어 / 주니어 여부"),
               Row(
                 children: [
                   Expanded(
                     child: RadioListTile(
                       value: "시니어",
-                      groupValue: seniorOrJunior,
+                      groupValue: _seniorOrJunior,
                       title: const Text("시니어"),
                       onChanged: (value) {
                         setState(() {
-                          seniorOrJunior = value!;
+                          _seniorOrJunior = value.toString();
                         });
                       },
                     ),
@@ -208,11 +265,11 @@ class _JoinScreenState extends State<JoinScreen> {
                   Expanded(
                     child: RadioListTile(
                       value: "주니어",
-                      groupValue: seniorOrJunior,
+                      groupValue: _seniorOrJunior,
                       title: const Text("주니어"),
                       onChanged: (value) {
                         setState(() {
-                          seniorOrJunior = value!;
+                          _seniorOrJunior = value.toString();
                         });
                       },
                     ),
@@ -220,30 +277,19 @@ class _JoinScreenState extends State<JoinScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (formKey.currentState!.validate()) {
-                      // 회원가입 처리 로직
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF9575CD),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 15,
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      onPressed: _registerUser,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9575CD),
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                      child: const Text(
+                        '회원가입',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    "회원가입",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class CustomBottomNavBar extends StatelessWidget {
@@ -14,7 +15,16 @@ class CustomBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return BottomNavigationBar(
       currentIndex: currentIndex,
-      onTap: onTabSelected,
+      onTap: (index) {
+        final user = FirebaseAuth
+            .instance.currentUser; // 현재 로그인된 유저 확인하는 firebase auth 기능
+
+        if ((index == 2 || index == 3) && user == null) {
+          Navigator.pushNamed(context, '/login');
+        } else {
+          onTabSelected(index);
+        }
+      },
       selectedItemColor: const Color(0xFFB794F4),
       unselectedItemColor: Colors.grey,
       items: const [

@@ -1,4 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mentors_app/screens/board_detail_screen.dart';
+import 'package:mentors_app/screens/chat_list_screen.dart';
+import 'package:mentors_app/screens/my_info_screen.dart';
 import 'package:mentors_app/screens/select_role_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/board_item.dart';
@@ -15,11 +19,34 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthState();
+  }
+
+  void _checkAuthState() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('사용자가 로그인 되어 있지 않습니다');
+    } else {
+      print('사용자가 로그인 되어 있습니다 : ${user.email}');
+    }
+  }
+
+  // 테스트 위해 임시 로그아웃 기능
+  void _logout() async {
+    await FirebaseAuth.instance.signOut();
+    print('로그아웃 완료');
+    setState(() {});
+  }
+
   void navigateToLogin(BuildContext context) {
     Navigator.pushNamed(context, '/login');
   }
 
   void _onTabSelected(int index) {
+    final user = FirebaseAuth.instance.currentUser;
     if (index == 1) {
       Navigator.pushNamed(context, '/board').then((_) {
         // '_' 는 콜백 함수의 매개변수 -> 값을 사용하지 않는다의 표현 Navigator.pushNamed는 Future를 반환하는데 then은 Future가 완료될 때 호출되는 콜백함수
@@ -28,17 +55,67 @@ class _MainScreenState extends State<MainScreen> {
         });
       });
     } else if (index == 2) {
-      Navigator.pushNamed(context, '/chat').then((_) {
-        setState(() {
-          _currentIndex = 0;
-        });
-      });
+      if (user == null) {
+        Navigator.pushNamed(context, '/login');
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ChatListScreen(),
+          ),
+        );
+      }
     } else if (index == 3) {
-      Navigator.pushNamed(context, '/myInfo').then((_) {
-        setState(() {
-          _currentIndex = 0;
-        });
+      if (user == null) {
+        Navigator.pushNamed(context, '/login');
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MyInfoScreen(),
+          ),
+        );
+      }
+    } else {
+      setState(() {
+        _currentIndex = index;
       });
+    }
+  }
+
+  void _checkAndNavigateCategory(BuildContext context, String categoryName) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      Navigator.pushNamed(context, '/login');
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MentorMenteeScreen(categoryName: categoryName),
+        ),
+      );
+    }
+  }
+
+  void _checkAndNavigateBoard(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      Navigator.pushNamed(context, '/login');
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BoardDetailScreen(
+            title: "게시글 테스트",
+            content: "글내용",
+            author: "작성자",
+            likes: 0,
+            views: 0,
+          ),
+        ),
+      );
     }
   }
 
@@ -57,6 +134,10 @@ class _MainScreenState extends State<MainScreen> {
           elevation: 0,
           automaticallyImplyLeading: false, // 메인 화면에서 뒤로가기 버튼 제거
           actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.black),
+              onPressed: _logout, // 임시 로그아웃 버튼
+            ),
             IconButton(
               onPressed: () => navigateToLogin(context),
               icon: Stack(
@@ -101,90 +182,43 @@ class _MainScreenState extends State<MainScreen> {
                     CategoryIcon(
                       label: "IT/전문기술",
                       icon: Icons.computer,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "IT/전문기술"),
-                        ),
-                      ),
+                      onTap: () =>
+                          _checkAndNavigateCategory(context, "IT/전문기술"),
                     ),
                     CategoryIcon(
                       label: "예술",
                       icon: Icons.palette,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "예술"),
-                        ),
-                      ),
+                      onTap: () => _checkAndNavigateCategory(context, "예술"),
                     ),
                     CategoryIcon(
                       label: "학업/교육",
                       icon: Icons.menu_book,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "학업/교육"),
-                        ),
-                      ),
+                      onTap: () => _checkAndNavigateCategory(context, "학업/교육"),
                     ),
                     CategoryIcon(
                       label: "마케팅",
                       icon: Icons.business,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "마케팅"),
-                        ),
-                      ),
+                      onTap: () => _checkAndNavigateCategory(context, "마케팅"),
                     ),
                     CategoryIcon(
                       label: "자기개발",
                       icon: Icons.edit,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "자기개발"),
-                        ),
-                      ),
+                      onTap: () => _checkAndNavigateCategory(context, "자기개발"),
                     ),
                     CategoryIcon(
                       label: "취업&커리어",
                       icon: Icons.work,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "취업&커리어"),
-                        ),
-                      ),
+                      onTap: () => _checkAndNavigateCategory(context, "취업&커리어"),
                     ),
                     CategoryIcon(
                       label: "금융/경제",
                       icon: Icons.monetization_on,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "금융/경제"),
-                        ),
-                      ),
+                      onTap: () => _checkAndNavigateCategory(context, "금융/경제"),
                     ),
                     CategoryIcon(
                       label: "기타",
                       icon: Icons.more_horiz,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MentorMenteeScreen(categoryName: "기타"),
-                        ),
-                      ),
+                      onTap: () => _checkAndNavigateCategory(context, "기타"),
                     ),
                   ],
                 ),
@@ -205,7 +239,7 @@ class _MainScreenState extends State<MainScreen> {
                       category: "스터디 구인",
                       date: "2023-01-01",
                       likes: "추천 : 123",
-                      onTap: () => navigateToLogin(context),
+                      onTap: () => _checkAndNavigateBoard(context),
                     ),
                   ),
                 ),

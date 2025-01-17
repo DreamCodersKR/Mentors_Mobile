@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mentors_app/screens/settings_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/bottom_nav_bar.dart';
 
@@ -29,7 +30,12 @@ class MyInfoScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.black),
             onPressed: () {
-              // 설정 화면 이동
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
           ),
         ],
