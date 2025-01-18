@@ -236,12 +236,14 @@ class _MainScreenState extends State<MainScreen> {
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('boards')
-                      .where('isDeleted', isEqualTo: false)
+                      // .where('isDeleted', isEqualTo: false)
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
                     }
 
                     if (snapshot.hasError) {

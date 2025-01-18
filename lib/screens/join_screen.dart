@@ -16,10 +16,10 @@ class _JoinScreenState extends State<JoinScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
-  final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _birthdateController = TextEditingController();
   final TextEditingController _telController = TextEditingController();
+  final TextEditingController _nicknameController = TextEditingController();
 
   String _gender = "";
   String _seniorOrJunior = "";
@@ -54,12 +54,14 @@ class _JoinScreenState extends State<JoinScreen> {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           "user_name": _nameController.text.trim(),
           "user_email": user.email,
+          "user_nickname": _nicknameController.text.trim(),
+          "tel": _telController.text.trim(),
           "user_gender": _gender,
           "birthdate": _birthdateController.text.trim(),
           "role": _seniorOrJunior,
-          "profilePhoto": "", // 프로필 사진 URL 추가 가능
-          "createdAt": FieldValue.serverTimestamp(),
-          "isDeleted": false,
+          "profile_photo": "", // 프로필 사진 URL 추가 가능
+          "created_at": FieldValue.serverTimestamp(),
+          "is_deleted": false,
         });
 
         // Firebase User Profile 닉네임 업데이트

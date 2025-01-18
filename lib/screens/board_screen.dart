@@ -71,7 +71,10 @@ class BoardScreen extends StatelessWidget {
             return const Center(
               child: Text(
                 "게시글이 없습니다.",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             );
           }

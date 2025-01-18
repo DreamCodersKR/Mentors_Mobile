@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -13,9 +15,9 @@ class WriteBoardScreen extends StatefulWidget {
 class _WriteBoardScreenState extends State<WriteBoardScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  String _selectedCategory = "카테고리 선택";
+  String _selectedCategory = "말머리 선택";
   final List<String> _categories = [
-    "카테고리 선택",
+    "말머리 선택",
     "IT/전문기술",
     "예술",
     "학업/교육",
@@ -28,21 +30,73 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
 
   final List<XFile> _attachedFiles = [];
 
-  void _submitPost() {
-    if (_titleController.text.isEmpty ||
-        _contentController.text.isEmpty ||
-        _selectedCategory == "카테고리 선택") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("모든 필드를 입력해주세요.")),
-      );
+  bool isLoading = false;
+
+  void _submitPost() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        // mounted 란? Flutter에서 state가 여전히 활성 상태인지 확인하는 속성
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("로그인이 필요합니다."),
+          ),
+        );
+      }
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("게시글이 성공적으로 작성되었습니다.")),
-    );
+    if (_titleController.text.isEmpty ||
+        _contentController.text.isEmpty ||
+        _selectedCategory == "말머리 선택") {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("모든 필드를 입력해주세요.")),
+        );
+      }
+      return;
+    }
 
-    Navigator.pop(context); // 이전 화면으로 돌아가기
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final newPost = {
+        "title": _titleController.text.trim(),
+        "content": _contentController.text.trim(),
+        "category": _selectedCategory,
+        "created_at": FieldValue.serverTimestamp(),
+        "author_id": user.uid,
+        "like_count": 0,
+        "is_deleted": false,
+      };
+
+      await FirebaseFirestore.instance.collection('boards').add(newPost);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("게시글이 성공적으로 작성되었습니다."),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "오류 발생: $e",
+            ),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _pickFile() async {
@@ -59,7 +113,9 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
 
   Future<void> _takePhoto() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+    final XFile? photo = await picker.pickImage(
+      source: ImageSource.camera,
+    );
 
     if (photo != null) {
       setState(() {
