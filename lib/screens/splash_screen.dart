@@ -72,33 +72,27 @@ class _SplashScreenState extends State<SplashScreen>
       children: List.generate(
         text.length,
         (index) {
-          return TweenAnimationBuilder(
-            tween: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
+          return TweenAnimationBuilder<Color?>(
+            tween: ColorTween(
+              begin: Colors.grey,
+              end: Colors.white,
             ),
-            duration: Duration(milliseconds: 1000 + (index * 200)),
-            curve: Curves.easeOutCubic,
-            builder: (context, Offset offset, child) {
-              return Opacity(
-                opacity: offset.dy == 0 ? 1.0 : 0.8,
-                child: Transform.translate(
-                  offset: offset * 50,
-                  child: Text(
-                    text[index],
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 10.0,
-                          color: Colors.black26,
-                          offset: Offset(0, 5),
-                        ),
-                      ],
+            duration: Duration(milliseconds: 800 + (index * 200)),
+            curve: Curves.easeInOut,
+            builder: (context, color, child) {
+              return Text(
+                text[index],
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                  shadows: const [
+                    Shadow(
+                      blurRadius: 10.0,
+                      color: Colors.black26,
+                      offset: Offset(0, 5),
                     ),
-                  ),
+                  ],
                 ),
               );
             },

@@ -52,7 +52,7 @@ class BoardScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('boards')
-            .orderBy('createdAt', descending: true)
+            .orderBy('created_at', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -87,9 +87,9 @@ class BoardScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final board = boardDocs[index];
               final title = board['title'] ?? '제목 없음';
-              final authorId = board['authorId'] ?? '닉네임 없음';
-              final createdAt = (board['createdAt'] as Timestamp?)?.toDate();
-              final likeCount = board['likeCount']?.toString() ?? '0';
+              final authorId = board['author_id'] ?? '닉네임 없음';
+              final createdAt = (board['created_at'] as Timestamp?)?.toDate();
+              final likeCount = board['like_count']?.toString() ?? '0';
               final views = 0; // Firestore에 조회수 필드 추가 필요 시 수정
 
               return ListTile(

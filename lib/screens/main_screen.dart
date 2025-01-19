@@ -99,28 +99,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // void _checkAndNavigateBoard(BuildContext context) {
-  //   final user = FirebaseAuth.instance.currentUser;
-
-  //   if (user == null) {
-  //     Navigator.pushNamed(context, '/login');
-  //   } else {
-  //     Navigator.push(
-  //       context,
-  //       MaterialPageRoute(
-  //         builder: (context) => BoardDetailScreen(
-  //           boardId: '',
-  //           title: "게시글 테스트",
-  //           content: "글내용",
-  //           author: "작성자",
-  //           likes: 0,
-  //           views: 0,
-  //         ),
-  //       ),
-  //     );
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -236,8 +214,7 @@ class _MainScreenState extends State<MainScreen> {
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('boards')
-                      // .where('isDeleted', isEqualTo: false)
-                      .orderBy('createdAt', descending: true)
+                      .orderBy('created_at', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
