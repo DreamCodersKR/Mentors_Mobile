@@ -22,7 +22,7 @@ class _JoinScreenState extends State<JoinScreen> {
   final TextEditingController _nicknameController = TextEditingController();
 
   String _gender = "";
-  String _seniorOrJunior = "";
+  final String _seniorOrJunior = "";
   bool _isLoading = false;
 
   Future<void> _registerUser() async {
@@ -248,36 +248,36 @@ class _JoinScreenState extends State<JoinScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-              const Text("시니어 / 주니어 여부"),
-              Row(
-                children: [
-                  Expanded(
-                    child: RadioListTile(
-                      value: "시니어",
-                      groupValue: _seniorOrJunior,
-                      title: const Text("시니어"),
-                      onChanged: (value) {
-                        setState(() {
-                          _seniorOrJunior = value.toString();
-                        });
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: RadioListTile(
-                      value: "주니어",
-                      groupValue: _seniorOrJunior,
-                      title: const Text("주니어"),
-                      onChanged: (value) {
-                        setState(() {
-                          _seniorOrJunior = value.toString();
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
+              // const SizedBox(height: 16),
+              // const Text("시니어 / 주니어 여부"),
+              // Row(
+              //   children: [
+              //     Expanded(
+              //       child: RadioListTile(
+              //         value: "시니어",
+              //         groupValue: _seniorOrJunior,
+              //         title: const Text("시니어"),
+              //         onChanged: (value) {
+              //           setState(() {
+              //             _seniorOrJunior = value.toString();
+              //           });
+              //         },
+              //       ),
+              //     ),
+              //     Expanded(
+              //       child: RadioListTile(
+              //         value: "주니어",
+              //         groupValue: _seniorOrJunior,
+              //         title: const Text("주니어"),
+              //         onChanged: (value) {
+              //           setState(() {
+              //             _seniorOrJunior = value.toString();
+              //           });
+              //         },
+              //       ),
+              //     ),
+              //   ],
+              // ),
               const SizedBox(height: 20),
               _isLoading
                   ? const Center(child: CircularProgressIndicator())

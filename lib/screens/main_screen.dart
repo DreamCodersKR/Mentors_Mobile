@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/screens/chat_list_screen.dart';
+import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/my_info_screen.dart';
 import 'package:mentors_app/screens/select_role_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
@@ -36,14 +38,69 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // 테스트 위해 임시 로그아웃 기능
-  void _logout() async {
-    await FirebaseAuth.instance.signOut();
-    print('로그아웃 완료');
-    setState(() {});
-  }
+  // void _logout() async {
+  //   await FirebaseAuth.instance.signOut();
+  //   print('로그아웃 완료');
+  //   setState(() {});
+  // }
 
   void navigateToLogin(BuildContext context) {
-    Navigator.pushNamed(context, '/login');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+    );
+  }
+
+  void _navigateToLoginOrDetail(
+    BuildContext context,
+    String boardId,
+    String title,
+    String content,
+    String author,
+    int likes,
+    int views,
+  ) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BoardDetailScreen(
+            boardId: boardId,
+            title: title,
+            content: content,
+            author: author,
+            likes: likes,
+            views: views,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _checkAndNavigateCategory(BuildContext context, String categoryName) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.pushNamed(context, '/login');
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MentorMenteeScreen(
+            categoryName: categoryName,
+          ),
+        ),
+      );
+    }
   }
 
   void _onTabSelected(int index) {
@@ -84,21 +141,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _checkAndNavigateCategory(BuildContext context, String categoryName) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      Navigator.pushNamed(context, '/login');
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => MentorMenteeScreen(categoryName: categoryName),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -114,10 +156,10 @@ class _MainScreenState extends State<MainScreen> {
           elevation: 0,
           automaticallyImplyLeading: false, // 메인 화면에서 뒤로가기 버튼 제거
           actions: [
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.black),
-              onPressed: _logout, // 임시 로그아웃 버튼
-            ),
+            // IconButton(
+            //   icon: const Icon(Icons.logout, color: Colors.black),
+            //   onPressed: _logout, // 임시 로그아웃 버튼
+            // ),
             IconButton(
               onPressed: () => navigateToLogin(context),
               icon: Stack(
@@ -204,7 +246,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  "자유게시판",
+                  "게시판",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -247,33 +289,31 @@ class _MainScreenState extends State<MainScreen> {
                       children: boardDocs.map((doc) {
                         final data = doc.data() as Map<String, dynamic>;
                         final title = data['title'] ?? '제목 없음';
+                        final content = data['content'] ?? '';
+                        final author = data['author_id'] ?? '익명';
                         final category = data['category'] ?? '카테고리 없음';
                         final createdAt =
-                            (data['createdAt'] as Timestamp?)?.toDate();
+                            (data['created_at'] as Timestamp?)?.toDate();
                         final formattedDate = createdAt != null
-                            ? "${createdAt.year}-${createdAt.month}-${createdAt.day}"
+                            ? DateFormat('yy.MM.dd HH:mm').format(createdAt)
                             : "날짜 없음";
+                        final views = data['views'] ?? 0;
+                        final likes = data['like_count'] ?? 0;
 
                         return BoardItem(
                           title: title,
                           category: category,
                           date: formattedDate,
-                          likes: "${data['likeCount'] ?? 0} 추천",
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => BoardDetailScreen(
-                                  boardId: doc.id,
-                                  title: title,
-                                  content: data['content'] ?? '',
-                                  author: data['authorId'] ?? '익명',
-                                  likes: data['likeCount'] ?? 0,
-                                  views: data['views'] ?? 0,
-                                ),
-                              ),
-                            );
-                          },
+                          likes: "$likes 추천",
+                          onTap: () => _navigateToLoginOrDetail(
+                            context,
+                            doc.id,
+                            title,
+                            content,
+                            author,
+                            likes,
+                            views,
+                          ),
                         );
                       }).toList(),
                     );

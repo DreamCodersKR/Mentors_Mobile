@@ -70,6 +70,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         "author_id": user.uid,
         "like_count": 0,
         "is_deleted": false,
+        "views": 0,
       };
 
       await FirebaseFirestore.instance.collection('boards').add(newPost);
@@ -197,13 +198,22 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               decoration: const InputDecoration(
-                labelText: "카테고리",
+                labelText: "말머리",
                 border: OutlineInputBorder(),
               ),
               items: _categories.map((String category) {
                 return DropdownMenuItem<String>(
                   value: category,
-                  child: Text(category),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth:
+                          MediaQuery.of(context).size.width * 0.7, // 가로 크기 제한
+                    ),
+                    child: Text(
+                      category,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 );
               }).toList(),
               onChanged: (String? newValue) {
