@@ -5,6 +5,7 @@ class BoardItem extends StatelessWidget {
   final String category;
   final String date;
   final String likes;
+  final String views;
   final VoidCallback? onTap;
 
   const BoardItem({
@@ -13,6 +14,7 @@ class BoardItem extends StatelessWidget {
     required this.category,
     required this.date,
     required this.likes,
+    required this.views,
     this.onTap,
   });
 
@@ -43,12 +45,26 @@ class BoardItem extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    category,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        category,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 12,
+                      ),
+                      Text(
+                        date,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
                   )
                 ],
               ),
@@ -56,14 +72,14 @@ class BoardItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    date,
+                    likes,
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.grey,
                     ),
                   ),
                   Text(
-                    likes,
+                    views,
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.grey,

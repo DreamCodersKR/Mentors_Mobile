@@ -19,30 +19,45 @@ class BoardScreen extends StatelessWidget {
     required String author,
     required int likes,
     required int views,
-  }) {
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     if (user == null) {
-      Navigator.push(
-        context,
+      navigator.push(
         MaterialPageRoute(
           builder: (context) => const LoginScreen(),
         ),
       );
+      return;
     } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
+      try {
+        final boardRef =
+            FirebaseFirestore.instance.collection('boards').doc(boardId);
+
+        // 조회수 증가
+        await boardRef.update({
+          'views': FieldValue.increment(1),
+        });
+
+        navigator.push(MaterialPageRoute(
           builder: (context) => BoardDetailScreen(
             boardId: boardId,
             title: title,
             content: content,
             author: author,
             likes: likes,
-            views: views,
+            views: views + 1,
           ),
-        ),
-      );
+        ));
+      } catch (e) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('조회수 업데이트에 실패했습니다.'),
+          ),
+        );
+      }
     }
   }
 

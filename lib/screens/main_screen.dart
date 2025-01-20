@@ -45,6 +45,7 @@ class _MainScreenState extends State<MainScreen> {
   // }
 
   void navigateToLogin(BuildContext context) {
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -53,26 +54,53 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Future<void> _incrementViews(String boardId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('boards')
+          .doc(boardId)
+          .update({
+        'views': FieldValue.increment(1),
+      });
+    } catch (e) {
+      print('조회수 증가 실패: $e');
+    }
+  }
+
   void _navigateToLoginOrDetail(
     BuildContext context,
     String boardId,
     String title,
     String content,
-    String author,
+    String authorUid,
     int likes,
     int views,
-  ) {
+  ) async {
+    final navigator = Navigator.of(context);
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      Navigator.push(
-        context,
+      navigator.push(
         MaterialPageRoute(
           builder: (context) => const LoginScreen(),
         ),
       );
+      return;
     } else {
-      Navigator.push(
-        context,
+      String author = '익명';
+      await _incrementViews(boardId);
+
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(authorUid)
+            .get();
+
+        author = userDoc.data()?['user_nickname'] ?? '익명';
+      } catch (e) {
+        print('작성자 닉네임 가져오기 실패 : $e');
+      }
+
+      navigator.push(
         MaterialPageRoute(
           builder: (context) => BoardDetailScreen(
             boardId: boardId,
@@ -80,7 +108,7 @@ class _MainScreenState extends State<MainScreen> {
             content: content,
             author: author,
             likes: likes,
-            views: views,
+            views: views + 1,
           ),
         ),
       );
@@ -257,6 +285,7 @@ class _MainScreenState extends State<MainScreen> {
                   stream: FirebaseFirestore.instance
                       .collection('boards')
                       .orderBy('created_at', descending: true)
+                      .limit(4)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -290,7 +319,7 @@ class _MainScreenState extends State<MainScreen> {
                         final data = doc.data() as Map<String, dynamic>;
                         final title = data['title'] ?? '제목 없음';
                         final content = data['content'] ?? '';
-                        final author = data['author_id'] ?? '익명';
+                        final authorUid = data['author_id'] ?? '익명';
                         final category = data['category'] ?? '카테고리 없음';
                         final createdAt =
                             (data['created_at'] as Timestamp?)?.toDate();
@@ -305,12 +334,13 @@ class _MainScreenState extends State<MainScreen> {
                           category: category,
                           date: formattedDate,
                           likes: "$likes 추천",
+                          views: "$views 조회수",
                           onTap: () => _navigateToLoginOrDetail(
                             context,
                             doc.id,
                             title,
                             content,
-                            author,
+                            authorUid,
                             likes,
                             views,
                           ),

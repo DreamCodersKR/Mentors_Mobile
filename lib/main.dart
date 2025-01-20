@@ -11,10 +11,10 @@ import 'package:mentors_app/screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MobileAds.instance.initialize();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  MobileAds.instance.initialize();
   runApp(const MyApp());
 }
 
