@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mentors_app/screens/search_result_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -9,18 +12,130 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<String> _recentSearches = ['멘토', '멘티', '멘토스'];
+  List<String> _recentSearches = [];
 
-  void _clearAllSearches() {
-    setState(() {
-      _recentSearches.clear();
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentSearches();
   }
 
-  void _removeSearchItem(String searchItem) {
-    setState(() {
-      _recentSearches.remove(searchItem);
-    });
+  Future<void> _loadRecentSearches() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final recentSearchesRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('recent_searches');
+
+      final querySnapshot = await recentSearchesRef
+          .orderBy('timestamp', descending: true)
+          .limit(10)
+          .get();
+
+      setState(() {
+        _recentSearches =
+            querySnapshot.docs.map((doc) => doc['query'] as String).toList();
+      });
+    } catch (e) {
+      print('최근 검색어 불러오기 오류: $e');
+    }
+  }
+
+  Future<void> _saveSearch(String searchQuery) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || searchQuery.isEmpty) return;
+
+    try {
+      final recentSearchesRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('recent_searches');
+
+      // 중복 검색어 제거: 동일한 검색어가 있으면 삭제
+      final querySnapshot =
+          await recentSearchesRef.where('query', isEqualTo: searchQuery).get();
+
+      for (var doc in querySnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // 새로운 검색어 추가
+      await recentSearchesRef.add({
+        'query': searchQuery,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      _loadRecentSearches(); // UI 업데이트
+    } catch (e) {
+      print('검색어 저장 오류: $e');
+    }
+  }
+
+  Future<void> _clearAllSearches() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final recentSearchesRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('recent_searches');
+
+      final querySnapshot = await recentSearchesRef.get();
+
+      for (var doc in querySnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      setState(() {
+        _recentSearches.clear();
+      });
+    } catch (e) {
+      print('검색어 전체 삭제 오류: $e');
+    }
+  }
+
+  Future<void> _removeSearchItem(String searchItem) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final recentSearchesRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('recent_searches');
+
+      final querySnapshot =
+          await recentSearchesRef.where('query', isEqualTo: searchItem).get();
+
+      for (var doc in querySnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      setState(() {
+        _recentSearches.remove(searchItem);
+      });
+    } catch (e) {
+      print('검색어 삭제 오류: $e');
+    }
+  }
+
+  void _performSearch() {
+    final query = _searchController.text.trim();
+    if (query.isNotEmpty) {
+      _saveSearch(query);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SearchResultScreen(
+            searchQuery: query,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -32,8 +147,13 @@ class _SearchScreenState extends State<SearchScreen> {
           decoration: const InputDecoration(
             hintText: "검색",
           ),
+          onSubmitted: (_) => _performSearch(),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: _performSearch,
+          ),
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () {
@@ -54,7 +174,7 @@ class _SearchScreenState extends State<SearchScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  "최근검색",
+                  "최근 검색",
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -81,6 +201,9 @@ class _SearchScreenState extends State<SearchScreen> {
                       icon: const Icon(Icons.close),
                       onPressed: () => _removeSearchItem(searchItem),
                     ),
+                    onTap: () {
+                      // TODO: 선택된 검색어로 검색 수행
+                    },
                   );
                 },
               ),

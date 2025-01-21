@@ -82,9 +82,12 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     });
 
     try {
+      final title = _titleController.text.trim();
+      final content = _contentController.text.trim();
+
       final Map<String, dynamic> postData = {
-        "title": _titleController.text.trim(),
-        "content": _contentController.text.trim(),
+        "title": title,
+        "content": content,
         "category": _selectedCategory,
       };
 
@@ -107,7 +110,10 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         await FirebaseFirestore.instance
             .collection('boards')
             .doc(widget.boardId)
-            .update(postData);
+            .update({
+          ...postData,
+          "updated_at": FieldValue.serverTimestamp(), // 수정 시간 추가
+        });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("게시글이 성공적으로 수정되었습니다.")),

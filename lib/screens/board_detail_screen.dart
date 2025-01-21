@@ -51,6 +51,50 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     category = widget.category;
     _checkIfLiked();
     _checkEditDeletePermission();
+    _addRecentView();
+  }
+
+  Future<void> _addRecentView() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final recentViewRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('recent_views');
+
+      final recentDocs = await recentViewRef.get();
+
+      // 이미 존재하는 게시글은 삭제하여 중복 방지
+      for (var doc in recentDocs.docs) {
+        if (doc['board_id'] == widget.boardId) {
+          await recentViewRef.doc(doc.id).delete();
+          break;
+        }
+      }
+
+      // 새로운 게시글 추가
+      await recentViewRef.add({
+        'board_id': widget.boardId,
+        'title': widget.title,
+        'content': widget.content,
+        'author': widget.author,
+        'author_id': widget.authorUid,
+        'category': widget.category,
+        'likes': widget.likes,
+        'views': widget.views,
+        'viewed_at': FieldValue.serverTimestamp(),
+      });
+
+      // 최대 10개 유지
+      if (recentDocs.docs.length >= 10) {
+        final oldestDoc = recentDocs.docs.first;
+        await recentViewRef.doc(oldestDoc.id).delete();
+      }
+    } catch (e) {
+      print('최근 본 게시글 추가 실패: $e');
+    }
   }
 
   Future<void> _checkEditDeletePermission() async {
@@ -283,11 +327,17 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    content,
-                    style: const TextStyle(fontSize: 16),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Text(
+                        content,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Text(
