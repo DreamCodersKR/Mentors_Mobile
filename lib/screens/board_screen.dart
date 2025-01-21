@@ -31,6 +31,37 @@ class _BoardScreenState extends State<BoardScreen> {
     '기타',
   ];
 
+  void _navigateToWriteBoard(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _navigateToLogin(context);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const WriteBoardScreen()),
+      );
+    }
+  }
+
+  void _navigateToRecentViews(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _navigateToLogin(context);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const RecentViewsScreen()),
+      );
+    }
+  }
+
+  void _navigateToLogin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
+  }
+
   void _navigateToLoginOrDetail(
     BuildContext context, {
     required String boardId,
@@ -145,15 +176,11 @@ class _BoardScreenState extends State<BoardScreen> {
             }).toList(),
           ),
           IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const WriteBoardScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.edit, color: Colors.black),
+            onPressed: () => _navigateToWriteBoard(context),
+            icon: const Icon(
+              Icons.edit,
+              color: Colors.black,
+            ),
           ),
         ],
       ),
@@ -168,14 +195,7 @@ class _BoardScreenState extends State<BoardScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RecentViewsScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: () => _navigateToRecentViews(context),
                   icon: const Icon(Icons.history, size: 16),
                   label: const Text("최근 본 게시글"),
                   style: ElevatedButton.styleFrom(
