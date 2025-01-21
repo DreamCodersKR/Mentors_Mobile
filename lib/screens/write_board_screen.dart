@@ -6,7 +6,18 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 class WriteBoardScreen extends StatefulWidget {
-  const WriteBoardScreen({super.key});
+  final String? boardId;
+  final String? initialTitle;
+  final String? initialContent;
+  final String? initialCategory;
+
+  const WriteBoardScreen({
+    super.key,
+    this.boardId,
+    this.initialTitle,
+    this.initialContent,
+    this.initialCategory,
+  });
 
   @override
   State<WriteBoardScreen> createState() => _WriteBoardScreenState();
@@ -27,6 +38,15 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     "금융/경제",
     "기타",
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    _titleController.text = widget.initialTitle ?? '';
+    _contentController.text = widget.initialContent ?? '';
+    _selectedCategory = widget.initialCategory ?? "말머리 선택";
+  }
 
   final List<XFile> _attachedFiles = [];
 
@@ -62,26 +82,45 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     });
 
     try {
-      final newPost = {
+      final Map<String, dynamic> postData = {
         "title": _titleController.text.trim(),
         "content": _contentController.text.trim(),
         "category": _selectedCategory,
-        "created_at": FieldValue.serverTimestamp(),
-        "author_id": user.uid,
-        "like_count": 0,
-        "is_deleted": false,
-        "views": 0,
       };
 
-      await FirebaseFirestore.instance.collection('boards').add(newPost);
+      if (widget.boardId == null) {
+        postData.addAll({
+          "created_at": FieldValue.serverTimestamp(),
+          "author_id": user.uid,
+          "like_count": 0,
+          "is_deleted": false,
+          "views": 0,
+        });
+
+        await FirebaseFirestore.instance.collection('boards').add(postData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("게시글이 성공적으로 작성되었습니다.")),
+          );
+        }
+      } else {
+        await FirebaseFirestore.instance
+            .collection('boards')
+            .doc(widget.boardId)
+            .update(postData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("게시글이 성공적으로 수정되었습니다.")),
+          );
+        }
+      }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("게시글이 성공적으로 작성되었습니다."),
-          ),
-        );
-        Navigator.pop(context);
+        Navigator.pop(context, {
+          "title": _titleController.text.trim(),
+          "content": _contentController.text.trim(),
+          "category": _selectedCategory,
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -172,10 +211,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "게시글 작성",
-          style: TextStyle(color: Colors.black),
-        ),
+        title: Text(widget.boardId == null ? "게시글 작성" : "게시글 수정"),
         backgroundColor: const Color(0xFFE2D4FF),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -204,16 +240,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
               items: _categories.map((String category) {
                 return DropdownMenuItem<String>(
                   value: category,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth:
-                          MediaQuery.of(context).size.width * 0.7, // 가로 크기 제한
-                    ),
-                    child: Text(
-                      category,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  child: Text(category),
                 );
               }).toList(),
               onChanged: (String? newValue) {

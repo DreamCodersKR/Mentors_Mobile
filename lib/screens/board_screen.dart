@@ -17,6 +17,8 @@ class BoardScreen extends StatelessWidget {
     required String title,
     required String content,
     required String author,
+    required String authorUid,
+    required String category,
     required int likes,
     required int views,
   }) async {
@@ -47,6 +49,8 @@ class BoardScreen extends StatelessWidget {
             title: title,
             content: content,
             author: author,
+            authorUid: authorUid,
+            category: category,
             likes: likes,
             views: views + 1,
           ),
@@ -103,8 +107,11 @@ class BoardScreen extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
+        // Firestore에서 복합 쿼리를 사용할 때, 특정 필드 조합으로 데이터를 필터링하거나 정렬하려면 항상 복합 인덱스가 필요하다.
+        // Firestore에서 쿼리 에러 로그에 항상 적절한 URL이 제공되니, 이를 활용하면 쉽게 문제를 해결할 수 있다.
         stream: FirebaseFirestore.instance
             .collection('boards')
+            .where('is_deleted', isEqualTo: false)
             .orderBy('created_at', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
@@ -115,6 +122,7 @@ class BoardScreen extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
+            print("Firestore 오류: ${snapshot.error}");
             return const Center(
               child: Text("오류가 발생했습니다. 다시 시도해주세요."),
             );
@@ -244,6 +252,8 @@ class BoardScreen extends StatelessWidget {
                               title: title,
                               content: content,
                               author: authorNickname,
+                              authorUid: authorId,
+                              category: category,
                               likes: likeCount,
                               views: views,
                             );

@@ -73,6 +73,7 @@ class _MainScreenState extends State<MainScreen> {
     String title,
     String content,
     String authorUid,
+    String category,
     int likes,
     int views,
   ) async {
@@ -107,6 +108,8 @@ class _MainScreenState extends State<MainScreen> {
             title: title,
             content: content,
             author: author,
+            authorUid: authorUid,
+            category: category,
             likes: likes,
             views: views + 1,
           ),
@@ -284,6 +287,7 @@ class _MainScreenState extends State<MainScreen> {
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('boards')
+                      .where('is_deleted', isEqualTo: false)
                       .orderBy('created_at', descending: true)
                       .limit(4)
                       .snapshots(),
@@ -341,6 +345,7 @@ class _MainScreenState extends State<MainScreen> {
                             title,
                             content,
                             authorUid,
+                            category,
                             likes,
                             views,
                           ),

@@ -2,12 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mentors_app/screens/write_board_screen.dart';
 
 class BoardDetailScreen extends StatefulWidget {
   final String boardId;
   final String title;
   final String content;
   final String author;
+  final String authorUid;
+  final String category;
   final int likes;
   final int views;
 
@@ -17,6 +20,8 @@ class BoardDetailScreen extends StatefulWidget {
     required this.title,
     required this.content,
     required this.author,
+    required this.authorUid,
+    required this.category,
     required this.likes,
     required this.views,
   });
@@ -28,7 +33,11 @@ class BoardDetailScreen extends StatefulWidget {
 class _BoardDetailScreenState extends State<BoardDetailScreen> {
   late bool _isLiked;
   late int _likeCount;
+  late String title;
+  late String content;
+  late String category;
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
+  bool _showEditDeleteButtons = false;
 
   final TextEditingController _commentController = TextEditingController();
 
@@ -37,7 +46,32 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     super.initState();
     _isLiked = false;
     _likeCount = widget.likes;
+    title = widget.title;
+    content = widget.content;
+    category = widget.category;
     _checkIfLiked();
+    _checkEditDeletePermission();
+  }
+
+  Future<void> _checkEditDeletePermission() async {
+    if (userId == null) return;
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      final userRole = userDoc.data()?['role'] ?? 'normal';
+      final isAuthor = widget.authorUid == userId;
+      final isAdmin = userRole == 'admin';
+
+      setState(() {
+        _showEditDeleteButtons = isAuthor || isAdmin;
+      });
+    } catch (e) {
+      print('권한 확인 실패: $e');
+    }
   }
 
   Future<void> _checkIfLiked() async {
@@ -141,6 +175,71 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     }
   }
 
+  Future<void> _deleteBoard() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('게시글 삭제'),
+          content: const Text('이 게시글을 정말 삭제하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('boards')
+          .doc(widget.boardId)
+          .update({'is_deleted': true});
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('게시글이 삭제되었습니다.')),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('게시글 삭제에 실패했습니다.')),
+      );
+    }
+  }
+
+  void _navigateToEditScreen() async {
+    final updatedPostData = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WriteBoardScreen(
+          boardId: widget.boardId,
+          initialTitle: title,
+          initialContent: content,
+          initialCategory: category,
+        ),
+      ),
+    );
+
+    if (updatedPostData != null) {
+      setState(() {
+        title = updatedPostData['title'];
+        content = updatedPostData['content'];
+        category = updatedPostData['category'];
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -179,7 +278,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    widget.title,
+                    title,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
@@ -187,8 +286,16 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    widget.content,
+                    content,
                     style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    "카테고리: $category",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -215,27 +322,24 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                           ),
                         ],
                       ),
-                      Row(
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              // 글 수정 로직
-                            },
-                            child: const Text(
-                              "글 수정",
+                      if (_showEditDeleteButtons)
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: _navigateToEditScreen,
+                              child: const Text(
+                                "글 수정",
+                              ),
                             ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              // 글 삭제 로직
-                            },
-                            child: const Text(
-                              "글 삭제",
-                              style: TextStyle(color: Colors.red),
+                            TextButton(
+                              onPressed: _deleteBoard,
+                              child: const Text(
+                                "글 삭제",
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                     ],
                   ),
                   const Divider(thickness: 1),
