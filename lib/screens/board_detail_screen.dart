@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 class BoardDetailScreen extends StatefulWidget {
   final String boardId;
@@ -38,6 +42,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   late String category;
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
   bool _showEditDeleteButtons = false;
+  List<dynamic>? files;
 
   final TextEditingController _commentController = TextEditingController();
 
@@ -52,6 +57,51 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     _checkIfLiked();
     _checkEditDeletePermission();
     _addRecentView();
+    _fetchFiles();
+  }
+
+  Future<void> _fetchFiles() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('boards')
+          .doc(widget.boardId)
+          .get();
+
+      final data = doc.data();
+      if (data != null && data.containsKey('files')) {
+        setState(() {
+          files = data['files'];
+        });
+      }
+    } catch (e) {
+      print('파일 정보를 가져오는 중 오류 발생: $e');
+    }
+  }
+
+  Future<void> _downloadFile(String url, String filename) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final directory = await getApplicationDocumentsDirectory();
+        final filePath = '${directory.path}/$filename';
+        final file = File(filePath);
+        await file.writeAsBytes(response.bodyBytes);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('파일 다운로드 완료: $filename')),
+          );
+        }
+      } else {
+        throw Exception('다운로드 실패');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('파일 다운로드 중 오류 발생 $e')),
+        );
+      }
+    }
   }
 
   Future<void> _addRecentView() async {
@@ -306,9 +356,47 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      const CircleAvatar(
-                        backgroundColor: Colors.grey,
-                        child: Icon(Icons.person, color: Colors.white),
+                      FutureBuilder<DocumentSnapshot>(
+                        future: FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(widget.authorUid)
+                            .get(),
+                        builder: (context, snapShot) {
+                          if (snapShot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircleAvatar(
+                              backgroundColor: Colors.grey,
+                              child: Icon(
+                                Icons.person_2_sharp,
+                                color: Colors.white,
+                              ),
+                            );
+                          }
+                          if (snapShot.hasError || !snapShot.hasData) {
+                            return const CircleAvatar(
+                              backgroundColor: Colors.grey,
+                              child: Icon(
+                                Icons.person_2_sharp,
+                                color: Colors.white,
+                              ),
+                            );
+                          }
+                          final userData =
+                              snapShot.data?.data() as Map<String, dynamic>?;
+                          final profilePhotoUrl =
+                              userData?['profile_photo'] ?? '';
+
+                          return CircleAvatar(
+                            radius: 25,
+                            backgroundColor: Colors.grey,
+                            backgroundImage: (profilePhotoUrl.isNotEmpty)
+                                ? NetworkImage(profilePhotoUrl) as ImageProvider
+                                : null,
+                            child: (profilePhotoUrl.isEmpty)
+                                ? const Icon(Icons.person, color: Colors.white)
+                                : null,
+                          );
+                        },
                       ),
                       const SizedBox(width: 10),
                       Text(
@@ -347,6 +435,39 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                       color: Colors.grey,
                     ),
                   ),
+                  const Divider(),
+                  if (files != null && files!.isNotEmpty) ...[
+                    const Text(
+                      '첨부 파일',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: files!.length,
+                      itemBuilder: (context, index) {
+                        final fileUrl = files![index];
+                        final fileName = Uri.parse(fileUrl).pathSegments.last;
+                        // final isImage = fileName.endsWith('jpg') ||
+                        //     fileName.endsWith('.jpeg') ||
+                        //     fileName.endsWith('.png');
+
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.attach_file,
+                          ),
+                          title: Text(fileName),
+                          trailing: IconButton(
+                            onPressed: () => _downloadFile(fileUrl, fileName),
+                            icon: const Icon(Icons.download),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -440,12 +561,38 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                               builder: (context, userSnapshot) {
                                 if (userSnapshot.connectionState ==
                                     ConnectionState.waiting) {
-                                  return const ListTile(
-                                    title: Text(
-                                      '로딩중...',
+                                  return ListTile(
+                                    leading: const CircleAvatar(
+                                      backgroundColor: Colors.grey,
+                                      child: Icon(Icons.person,
+                                          color: Colors.white),
                                     ),
+                                    title: const Text('로딩 중...'),
                                   );
                                 }
+
+                                if (userSnapshot.hasError ||
+                                    !userSnapshot.hasData) {
+                                  return ListTile(
+                                    leading: const CircleAvatar(
+                                      backgroundColor: Colors.grey,
+                                      child: Icon(
+                                        Icons.person,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    title: Text(content),
+                                    subtitle: Text(createdAt != null
+                                        ? DateFormat('yy.MM.dd HH:mm')
+                                            .format(createdAt)
+                                        : '알 수 없음'),
+                                  );
+                                }
+
+                                final userData = userSnapshot.data?.data()
+                                    as Map<String, dynamic>;
+                                final profilePhotoUrl =
+                                    userData['profile_photo'] ?? '';
                                 final userNickname =
                                     userSnapshot.data?['user_nickname'] ?? '익명';
                                 final formattedDate = createdAt != null
@@ -453,8 +600,18 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                                         .format(createdAt)
                                     : '알 수 없음';
                                 return ListTile(
-                                  leading: const CircleAvatar(
-                                    child: Icon(Icons.person),
+                                  leading: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: Colors.grey,
+                                    backgroundImage:
+                                        (profilePhotoUrl.isNotEmpty)
+                                            ? NetworkImage(profilePhotoUrl)
+                                                as ImageProvider
+                                            : null,
+                                    child: (profilePhotoUrl.isEmpty)
+                                        ? const Icon(Icons.person,
+                                            color: Colors.white)
+                                        : null,
                                   ),
                                   title: Text(content),
                                   subtitle: Row(

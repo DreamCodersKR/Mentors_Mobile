@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -49,10 +50,32 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
   }
 
   final List<XFile> _attachedFiles = [];
-
   bool isLoading = false;
+  static const int maxTotalSize = 80 * 1024 * 1024; // 게시물당 총 얼마까지 첨부할 수 있게만들건지
+  int _currentTotalSize = 0; // 현재 첨부된 파일들의 총총 크기
+
+  Future<List<String>> _uploadFiles(List<XFile> files) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return [];
+
+    final List<String> fileUrls = [];
+
+    for (var file in files) {
+      try {
+        final ref = FirebaseStorage.instance.ref().child(
+            'board_files/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_${file.name}');
+        final uploadTask = await ref.putFile(File(file.path));
+        final downloadUrl = await uploadTask.ref.getDownloadURL();
+        fileUrls.add(downloadUrl);
+      } catch (e) {
+        print('파일 업로드 실패: $e');
+      }
+    }
+    return fileUrls;
+  }
 
   void _submitPost() async {
+    if (isLoading) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (mounted) {
@@ -82,6 +105,8 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     });
 
     try {
+      final fileUrls = await _uploadFiles(_attachedFiles);
+
       final title = _titleController.text.trim();
       final content = _contentController.text.trim();
 
@@ -89,6 +114,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         "title": title,
         "content": content,
         "category": _selectedCategory,
+        "files": fileUrls,
       };
 
       if (widget.boardId == null) {
@@ -112,7 +138,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
             .doc(widget.boardId)
             .update({
           ...postData,
-          "updated_at": FieldValue.serverTimestamp(), // 수정 시간 추가
+          "updated_at": FieldValue.serverTimestamp(),
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -139,9 +165,11 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         );
       }
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -149,11 +177,23 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     final ImagePicker picker = ImagePicker();
     final XFile? file = await picker.pickImage(source: ImageSource.gallery);
     if (file != null) {
-      setState(
-        () {
+      final fileSize = await File(file.path).length();
+      if (_currentTotalSize + fileSize > maxTotalSize) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("파일 크기는 최대 80MB까지 업로드 가능합니다."),
+            ),
+          );
+          return;
+        }
+      }
+      if (mounted) {
+        setState(() {
           _attachedFiles.add(file);
-        },
-      );
+          _currentTotalSize += fileSize;
+        });
+      }
     }
   }
 
@@ -164,9 +204,23 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     );
 
     if (photo != null) {
-      setState(() {
-        _attachedFiles.add(photo);
-      });
+      final fileSize = await File(photo.path).length();
+      if (_currentTotalSize + fileSize > maxTotalSize) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("파일 크기는 최대 80MB까지 업로드 가능합니다."),
+            ),
+          );
+          return;
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _attachedFiles.add(photo);
+          _currentTotalSize += fileSize;
+        });
+      }
     }
   }
 
@@ -192,9 +246,12 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
               top: -8,
               child: GestureDetector(
                 onTap: () {
-                  setState(() {
-                    _attachedFiles.remove(file);
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _currentTotalSize -= File(file.path).lengthSync();
+                      _attachedFiles.remove(file);
+                    });
+                  }
                 },
                 child: const CircleAvatar(
                   backgroundColor: Colors.red,
@@ -223,7 +280,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           TextButton(
-            onPressed: _submitPost,
+            onPressed: isLoading ? null : _submitPost,
             child: const Text(
               "완료",
               style:
@@ -286,12 +343,12 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton.icon(
-                  onPressed: _pickFile,
+                  onPressed: isLoading ? null : _pickFile,
                   icon: const Icon(Icons.attach_file),
                   label: const Text("파일 첨부"),
                 ),
                 ElevatedButton.icon(
-                  onPressed: _takePhoto,
+                  onPressed: isLoading ? null : _takePhoto,
                   icon: const Icon(Icons.camera_alt),
                   label: const Text("사진 촬영"),
                 ),

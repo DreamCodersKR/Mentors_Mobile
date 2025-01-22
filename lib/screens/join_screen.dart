@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class JoinScreen extends StatefulWidget {
   const JoinScreen({super.key});
@@ -22,8 +26,54 @@ class _JoinScreenState extends State<JoinScreen> {
   final TextEditingController _nicknameController = TextEditingController();
 
   String _gender = "";
-  final String _seniorOrJunior = "";
   bool _isLoading = false;
+
+  File? _profileImage;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      final file = File(pickedFile.path);
+      final fileSize = await file.length();
+      const maxSizeInBytes = 8 * 1024 * 1024; // 8MB
+
+      if (fileSize > maxSizeInBytes) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("파일 크기는 최대 8MB까지 업로드 가능합니다."),
+            ),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<String?> _uploadProfileImage(String userId) async {
+    if (_profileImage == null) return null;
+
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('$userId.jpg');
+      final uploadTask = await ref.putFile(_profileImage!);
+
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      print('프로필 사진 업로드 성공: $downloadUrl');
+      return downloadUrl;
+    } catch (e) {
+      print('프로필 사진 업로드 실패: $e');
+      return null;
+    }
+  }
 
   Future<void> _registerUser() async {
     if (_formKey.currentState?.validate() != true) return;
@@ -40,7 +90,6 @@ class _JoinScreenState extends State<JoinScreen> {
     });
 
     try {
-      // Firebase Authentication을 통한 사용자 생성
       final userCredential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -48,6 +97,11 @@ class _JoinScreenState extends State<JoinScreen> {
       );
 
       final user = userCredential.user;
+
+      String? profilePhotoUrl;
+      if (user != null) {
+        profilePhotoUrl = await _uploadProfileImage(user.uid);
+      }
 
       // Firestore에 사용자 추가 정보 저장
       if (user != null) {
@@ -58,8 +112,8 @@ class _JoinScreenState extends State<JoinScreen> {
           "tel": _telController.text.trim(),
           "user_gender": _gender,
           "birthdate": _birthdateController.text.trim(),
-          "role": _seniorOrJunior,
-          "profile_photo": "", // 프로필 사진 URL 추가 가능
+          "role": "normal",
+          "profile_photo": profilePhotoUrl ?? "",
           "created_at": FieldValue.serverTimestamp(),
           "is_deleted": false,
         });
@@ -123,13 +177,19 @@ class _JoinScreenState extends State<JoinScreen> {
                   children: [
                     CircleAvatar(
                       radius: 40,
+                      backgroundImage: _profileImage != null
+                          ? FileImage(_profileImage!)
+                          : null,
                       backgroundColor: Colors.grey[300],
-                      child: IconButton(
-                        icon: const Icon(Icons.add_a_photo, size: 30),
-                        onPressed: () {
-                          // 프로필 사진 추가 로직
-                        },
-                      ),
+                      child: _profileImage == null
+                          ? IconButton(
+                              onPressed: _pickImage,
+                              icon: const Icon(
+                                Icons.add_a_photo_rounded,
+                                size: 30,
+                              ),
+                            )
+                          : null,
                     ),
                     const SizedBox(height: 8),
                     const Text(

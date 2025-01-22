@@ -72,6 +72,7 @@ class _BoardScreenState extends State<BoardScreen> {
     required String category,
     required int likes,
     required int views,
+    // required String profilePhotoUrl,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     final navigator = Navigator.of(context);
@@ -274,6 +275,14 @@ class _BoardScreenState extends State<BoardScreen> {
                             userSnapshot.data!.data() as Map<String, dynamic>?;
                         final authorNickname =
                             userData?['user_nickname'] ?? '익명';
+                        final profilePhotoUrl =
+                            userData?['profile_photo'] ?? '없음';
+
+                        final datas = board.data() as Map<String, dynamic>?;
+
+                        final hasFiles = datas != null &&
+                            datas.containsKey('files') &&
+                            (datas['files'] as List<dynamic>).isNotEmpty;
 
                         return FutureBuilder(
                             future: commentsRef.get(),
@@ -282,21 +291,44 @@ class _BoardScreenState extends State<BoardScreen> {
                                   commentsSnapshot.data?.docs.length ?? 0;
 
                               return ListTile(
-                                leading: const CircleAvatar(
+                                leading: CircleAvatar(
+                                  radius: 25,
                                   backgroundColor: Colors.grey,
-                                  child:
-                                      Icon(Icons.person, color: Colors.white),
+                                  backgroundImage: (profilePhotoUrl.isNotEmpty)
+                                      ? NetworkImage(profilePhotoUrl)
+                                          as ImageProvider
+                                      : null,
+                                  child: (profilePhotoUrl.isEmpty)
+                                      ? const Icon(Icons.person,
+                                          color: Colors.white)
+                                      : null,
                                 ),
                                 title: Row(
                                   children: [
                                     Expanded(
-                                      child: Text(
-                                        '[$category] $title',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                      child: Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              '[$category] $title',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (hasFiles) ...[
+                                            const SizedBox(
+                                              width: 4,
+                                            ),
+                                            const Icon(
+                                              Icons.attach_file,
+                                              size: 16,
+                                              color: Colors.grey,
+                                            )
+                                          ]
+                                        ],
                                       ),
                                     ),
                                     const SizedBox(width: 5),
@@ -356,6 +388,7 @@ class _BoardScreenState extends State<BoardScreen> {
                                     category: category,
                                     likes: likeCount,
                                     views: views,
+                                    // profilePhotoUrl: profilePhotoUrl,
                                   );
                                 },
                               );

@@ -1,10 +1,44 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mentors_app/screens/settings_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/bottom_nav_bar.dart';
 
-class MyInfoScreen extends StatelessWidget {
+class MyInfoScreen extends StatefulWidget {
   const MyInfoScreen({super.key});
+
+  @override
+  State<MyInfoScreen> createState() => _MyInfoScreenState();
+}
+
+class _MyInfoScreenState extends State<MyInfoScreen> {
+  String? _nickname;
+  String? _profilePhotoUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserInfo();
+  }
+
+  Future<void> _fetchUserInfo() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        setState(() {
+          _nickname = data?['user_nickname'] ?? '익명';
+          _profilePhotoUrl = data?['profile_photo'];
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,13 +79,19 @@ class MyInfoScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 20),
             ListTile(
-              leading: const CircleAvatar(
+              leading: CircleAvatar(
                 radius: 30,
                 backgroundColor: Colors.grey,
-                child: Icon(Icons.person, color: Colors.white, size: 40),
+                backgroundImage:
+                    (_profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty)
+                        ? NetworkImage(_profilePhotoUrl!) as ImageProvider
+                        : null,
+                child: (_profilePhotoUrl == null || _profilePhotoUrl!.isEmpty)
+                    ? const Icon(Icons.person, color: Colors.white, size: 40)
+                    : null,
               ),
-              title: const Text(
-                '닉네임',
+              title: Text(
+                _nickname ?? '익명',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               trailing: const Icon(Icons.chevron_right),
