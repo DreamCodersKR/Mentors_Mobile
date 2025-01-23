@@ -58,6 +58,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     _checkEditDeletePermission();
     _addRecentView();
     _fetchFiles();
+    _fetchBoardData();
   }
 
   Future<void> _fetchFiles() async {
@@ -296,7 +297,10 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
       await FirebaseFirestore.instance
           .collection('boards')
           .doc(widget.boardId)
-          .update({'is_deleted': true});
+          .update({
+        'is_deleted': true,
+        'updated_at': FieldValue.serverTimestamp(),
+      });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -334,6 +338,39 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     }
   }
 
+  Future<void> _fetchBoardData() async {
+    try {
+      // Firestore에서 게시글 데이터 가져오기
+      final doc = await FirebaseFirestore.instance
+          .collection('boards')
+          .doc(widget.boardId)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data();
+
+        if (data != null) {
+          setState(() {
+            // Firestore에서 가져온 데이터를 UI에 반영
+            title = data['title'] ?? title;
+            content = data['content'] ?? content;
+            category = data['category'] ?? category;
+            _likeCount = data['like_count'] ?? _likeCount;
+          });
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('게시글이 삭제되었습니다.')),
+          );
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      print('게시글 데이터를 가져오는 중 오류 발생: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -346,177 +383,184 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
+      resizeToAvoidBottomInset: true,
       body: Column(
         children: [
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      FutureBuilder<DocumentSnapshot>(
-                        future: FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(widget.authorUid)
-                            .get(),
-                        builder: (context, snapShot) {
-                          if (snapShot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const CircleAvatar(
-                              backgroundColor: Colors.grey,
-                              child: Icon(
-                                Icons.person_2_sharp,
-                                color: Colors.white,
-                              ),
-                            );
-                          }
-                          if (snapShot.hasError || !snapShot.hasData) {
-                            return const CircleAvatar(
-                              backgroundColor: Colors.grey,
-                              child: Icon(
-                                Icons.person_2_sharp,
-                                color: Colors.white,
-                              ),
-                            );
-                          }
-                          final userData =
-                              snapShot.data?.data() as Map<String, dynamic>?;
-                          final profilePhotoUrl =
-                              userData?['profile_photo'] ?? '';
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(widget.authorUid)
+                              .get(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const CircleAvatar(
+                                backgroundColor: Colors.grey,
+                                child: Icon(
+                                  Icons.person_2_sharp,
+                                  color: Colors.white,
+                                ),
+                              );
+                            }
+                            if (snapshot.hasError || !snapshot.hasData) {
+                              return const CircleAvatar(
+                                backgroundColor: Colors.grey,
+                                child: Icon(
+                                  Icons.person_2_sharp,
+                                  color: Colors.white,
+                                ),
+                              );
+                            }
+                            final userData =
+                                snapshot.data?.data() as Map<String, dynamic>?;
+                            final profilePhotoUrl =
+                                userData?['profile_photo'] ?? '';
 
-                          return CircleAvatar(
-                            radius: 25,
-                            backgroundColor: Colors.grey,
-                            backgroundImage: (profilePhotoUrl.isNotEmpty)
-                                ? NetworkImage(profilePhotoUrl) as ImageProvider
-                                : null,
-                            child: (profilePhotoUrl.isEmpty)
-                                ? const Icon(Icons.person, color: Colors.white)
-                                : null,
-                          );
-                        },
+                            return CircleAvatar(
+                              radius: 25,
+                              backgroundColor: Colors.grey,
+                              backgroundImage: (profilePhotoUrl.isNotEmpty)
+                                  ? NetworkImage(profilePhotoUrl)
+                                  : null,
+                              child: (profilePhotoUrl.isEmpty)
+                                  ? const Icon(Icons.person,
+                                      color: Colors.white)
+                                  : null,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          widget.author,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                       ),
-                      const SizedBox(width: 10),
-                      Text(
-                        widget.author,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      content,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      "카테고리: $category",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const Divider(),
+                    if (files != null && files!.isNotEmpty) ...[
+                      const Text(
+                        '첨부 파일',
+                        style: TextStyle(
                           fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxHeight: 120,
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: files!.length,
+                          itemBuilder: (context, index) {
+                            final fileUrl = files![index];
+                            final fileName =
+                                Uri.parse(fileUrl).pathSegments.last;
+
+                            return ListTile(
+                              leading: const Icon(Icons.attach_file),
+                              title: Text(
+                                fileName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: IconButton(
+                                onPressed: () =>
+                                    _downloadFile(fileUrl, fileName),
+                                icon: const Icon(Icons.download),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        content,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    "카테고리: $category",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const Divider(),
-                  if (files != null && files!.isNotEmpty) ...[
-                    const Text(
-                      '첨부 파일',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: files!.length,
-                      itemBuilder: (context, index) {
-                        final fileUrl = files![index];
-                        final fileName = Uri.parse(fileUrl).pathSegments.last;
-                        // final isImage = fileName.endsWith('jpg') ||
-                        //     fileName.endsWith('.jpeg') ||
-                        //     fileName.endsWith('.png');
-
-                        return ListTile(
-                          leading: const Icon(
-                            Icons.attach_file,
-                          ),
-                          title: Text(fileName),
-                          trailing: IconButton(
-                            onPressed: () => _downloadFile(fileUrl, fileName),
-                            icon: const Icon(Icons.download),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.thumb_up,
-                              color: _isLiked ? Colors.red : Colors.grey,
-                            ),
-                            onPressed: _toggleLike,
-                          ),
-                          Text(
-                            "$_likeCount",
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            "조회수 ${widget.views}",
-                            style: const TextStyle(
-                                fontSize: 14, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                      if (_showEditDeleteButtons)
+                    const SizedBox(height: 5),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                         Row(
                           children: [
-                            TextButton(
-                              onPressed: _navigateToEditScreen,
-                              child: const Text(
-                                "글 수정",
+                            IconButton(
+                              icon: Icon(
+                                Icons.thumb_up,
+                                color: _isLiked ? Colors.red : Colors.grey,
                               ),
+                              onPressed: () async {
+                                await _toggleLike();
+                                _fetchBoardData(); // 추천 후 최신 데이터를 반영
+                              },
                             ),
-                            TextButton(
-                              onPressed: _deleteBoard,
-                              child: const Text(
-                                "글 삭제",
-                                style: TextStyle(color: Colors.red),
-                              ),
+                            Text(
+                              "$_likeCount",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              "조회수 ${widget.views}",
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.grey),
                             ),
                           ],
                         ),
-                    ],
-                  ),
-                  const Divider(thickness: 1),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: StreamBuilder<QuerySnapshot>(
+                        if (_showEditDeleteButtons)
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: _navigateToEditScreen,
+                                child: const Text(
+                                  "글 수정",
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _deleteBoard,
+                                child: const Text(
+                                  "글 삭제",
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const Divider(thickness: 1),
+                    StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('boards')
                           .doc(widget.boardId)
@@ -545,6 +589,8 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
 
                         final comments = snapshot.data!.docs;
                         return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
                           itemCount: comments.length,
                           itemBuilder: (context, index) {
                             final comment = comments[index];
@@ -620,13 +666,13 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                                     children: [
                                       Text(
                                         "작성자: $userNickname",
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           color: Colors.grey,
                                         ),
                                       ),
                                       Text(
                                         formattedDate,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           color: Colors.grey,
                                         ),
                                       )
@@ -639,8 +685,8 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                         );
                       },
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

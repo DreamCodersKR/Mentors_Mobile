@@ -18,7 +18,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("로그아웃 되었습니다.")),
     );
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
   }
 
   void _deleteAccount() async {

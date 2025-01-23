@@ -4,9 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 
-class RecentViewsScreen extends StatelessWidget {
+class RecentViewsScreen extends StatefulWidget {
   const RecentViewsScreen({super.key});
 
+  @override
+  State<RecentViewsScreen> createState() => _RecentViewsScreenState();
+}
+
+class _RecentViewsScreenState extends State<RecentViewsScreen> {
   Future<void> _incrementViews(String boardId) async {
     try {
       await FirebaseFirestore.instance
@@ -30,21 +35,81 @@ class RecentViewsScreen extends StatelessWidget {
     required String category,
     required int likes,
     required int views,
-  }) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BoardDetailScreen(
-          boardId: boardId,
-          title: title,
-          content: content,
-          author: author,
-          authorUid: authorUid,
-          category: category,
-          likes: likes,
-          views: views,
-        ),
-      ),
+  }) async {
+    try {
+      final updatedDoc = await FirebaseFirestore.instance
+          .collection('boards')
+          .doc(boardId)
+          .get();
+      if (updatedDoc.exists) {
+        final updatedData = updatedDoc.data();
+        if (updatedData != null) {
+          final isDeleted = updatedData['is_deleted'] ?? false;
+          if (isDeleted) {
+            _showDeletedDialog(context);
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BoardDetailScreen(
+                  boardId: boardId,
+                  title: updatedData['title'] ?? title,
+                  content: updatedData['content'] ?? content,
+                  author: updatedData['author'] ?? author,
+                  authorUid: authorUid,
+                  category: updatedData['category'] ?? category,
+                  likes: updatedData['like_count'] ?? likes,
+                  views: updatedData['views'] ?? views,
+                ),
+              ),
+            ).then((_) {
+              setState(() {});
+            });
+          }
+        }
+      } else {
+        _showDeletedDialog(context);
+      }
+    } catch (e) {
+      print('게시글 데이터 로드 실패: $e');
+    }
+
+    // Navigator.push(
+    //   context,
+    //   MaterialPageRoute(
+    //     builder: (context) => BoardDetailScreen(
+    //       boardId: boardId,
+    //       title: title,
+    //       content: content,
+    //       author: author,
+    //       authorUid: authorUid,
+    //       category: category,
+    //       likes: likes,
+    //       views: views,
+    //     ),
+    //   ),
+    // ).then((_) {
+    //   setState(() {});
+    // });
+  }
+
+  void _showDeletedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('게시글 삭제됨'),
+          content: const Text('해당 게시글은 삭제된 상태입니다.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -84,6 +149,7 @@ class RecentViewsScreen extends StatelessWidget {
                 }
 
                 if (snapshot.hasError) {
+                  print("Firestore 오류: ${snapshot.error}");
                   return const Center(
                     child: Text("오류가 발생했습니다. 다시 시도해주세요."),
                   );
@@ -112,27 +178,56 @@ class RecentViewsScreen extends StatelessWidget {
                     final views = data['views'];
                     final boardId = data['board_id'];
 
-                    return ListTile(
-                      title: Text(
-                        title,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(category),
-                      onTap: () async {
-                        await _incrementViews(boardId);
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('boards')
+                          .doc(boardId)
+                          .get(),
+                      builder: (context, boardSnapshot) {
+                        if (boardSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const CircularProgressIndicator();
+                        }
 
-                        _navigateToDetail(
-                          context,
-                          boardId: boardId,
-                          title: title,
-                          content: content,
-                          author: authorNickname,
-                          authorUid: authorId,
-                          category: category,
-                          likes: likes,
-                          views: views + 1,
+                        if (boardSnapshot.hasError || !boardSnapshot.hasData) {
+                          return const Text('게시글 데이터를 가져올 수 없습니다.');
+                        }
+
+                        final boardData =
+                            boardSnapshot.data?.data() as Map<String, dynamic>?;
+
+                        if (boardData == null) {
+                          return const Text('게시글 데이터가 없습니다.');
+                        }
+
+                        final updatedTitle = boardData['title'] ?? title;
+                        final updatedCategory =
+                            boardData['category'] ?? category;
+                        final updatedLikes = boardData['like_count'] ?? likes;
+                        final updatedViews = boardData['views'] ?? views;
+
+                        return ListTile(
+                          title: Text(
+                            updatedTitle,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(updatedCategory),
+                          onTap: () async {
+                            await _incrementViews(boardId);
+                            _navigateToDetail(
+                              context,
+                              boardId: boardId,
+                              title: updatedTitle,
+                              content: content,
+                              author: authorNickname,
+                              authorUid: authorId,
+                              category: updatedCategory,
+                              likes: updatedLikes,
+                              views: updatedViews + 1,
+                            );
+                          },
                         );
                       },
                     );
@@ -141,13 +236,9 @@ class RecentViewsScreen extends StatelessWidget {
               },
             ),
           ),
-          SizedBox(
-            height: 30,
-          ),
+          const SizedBox(height: 30),
           const BannerAdWidget(),
-          SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
