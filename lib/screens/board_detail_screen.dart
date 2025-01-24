@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:intl/intl.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
 import 'package:http/http.dart' as http;
@@ -595,7 +596,46 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         const SizedBox(height: 10),
         Text(
           content,
-          style: const TextStyle(fontSize: 16),
+          style: const TextStyle(
+            fontSize: 16,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('boards')
+              .doc(widget.boardId)
+              .get(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return const Text("내용을 불러오는 중 오류가 발생했습니다.");
+            }
+
+            final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+            final htmlContent = data['htmlContent'] ?? '';
+
+            return HtmlWidget(
+              htmlContent,
+              onErrorBuilder: (context, element, error) => Text(
+                '이미지를 불러오지 못했습니다.',
+                style: const TextStyle(color: Colors.red, fontSize: 14),
+              ),
+              customStylesBuilder: (element) {
+                if (element.localName == 'img') {
+                  return {
+                    'width': '100%',
+                    'max-width': '300px',
+                    'height': 'auto',
+                  };
+                }
+                return null;
+              },
+            );
+          },
         ),
         const SizedBox(height: 20),
         Text(

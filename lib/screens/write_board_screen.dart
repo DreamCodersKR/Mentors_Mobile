@@ -40,19 +40,19 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     "기타",
   ];
 
+  final List<XFile> _attachedFiles = [];
+  final List<String> _htmlImages = []; // HTML로 저장할 이미지 태그 리스트
+  bool isLoading = false;
+  static const int maxTotalSize = 80 * 1024 * 1024;
+  int _currentTotalSize = 0;
+
   @override
   void initState() {
     super.initState();
-
     _titleController.text = widget.initialTitle ?? '';
     _contentController.text = widget.initialContent ?? '';
     _selectedCategory = widget.initialCategory ?? "말머리 선택";
   }
-
-  final List<XFile> _attachedFiles = [];
-  bool isLoading = false;
-  static const int maxTotalSize = 80 * 1024 * 1024; // 게시물당 총 얼마까지 첨부할 수 있게만들건지
-  int _currentTotalSize = 0; // 현재 첨부된 파일들의 총총 크기
 
   Future<List<String>> _uploadFiles(List<XFile> files) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -64,11 +64,9 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
       try {
         final ref = FirebaseStorage.instance.ref().child(
             'board_files/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_${file.name}');
-        // final uploadTask = await ref.putFile(File(file.path));
         await ref.putFile(File(file.path));
-        print('업로드된 경로: ${ref.fullPath}');
-        final storagePath = ref.fullPath; // Firebase Storage 경로 저장
-        filePaths.add('gs://${ref.bucket}/$storagePath'); // gs:// 경로 생성
+        final downloadUrl = await ref.getDownloadURL();
+        filePaths.add(downloadUrl);
       } catch (e) {
         print('파일 업로드 실패: $e');
       }
@@ -78,14 +76,12 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
 
   void _submitPost() async {
     if (isLoading) return;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (mounted) {
-        // mounted 란? Flutter에서 state가 여전히 활성 상태인지 확인하는 속성
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("로그인이 필요합니다."),
-          ),
+          const SnackBar(content: Text("로그인이 필요합니다.")),
         );
       }
       return;
@@ -107,16 +103,18 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     });
 
     try {
-      final filePaths = await _uploadFiles(_attachedFiles);
+      final uploadedFiles = await _uploadFiles(_attachedFiles);
 
       final title = _titleController.text.trim();
       final content = _contentController.text.trim();
+      final htmlContent = _htmlImages.join('\n'); // HTML로 저장할 이미지 태그 합치기
 
       final Map<String, dynamic> postData = {
         "title": title,
         "content": content,
         "category": _selectedCategory,
-        "files": filePaths,
+        "files": uploadedFiles,
+        "htmlContent": htmlContent, // 이미지 HTML 태그 저장
       };
 
       if (widget.boardId == null) {
@@ -150,20 +148,12 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
       }
 
       if (mounted) {
-        Navigator.pop(context, {
-          "title": _titleController.text.trim(),
-          "content": _contentController.text.trim(),
-          "category": _selectedCategory,
-        });
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "오류 발생: $e",
-            ),
-          ),
+          SnackBar(content: Text("오류 발생: $e")),
         );
       }
     } finally {
@@ -178,50 +168,81 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
   Future<void> _pickFile() async {
     final ImagePicker picker = ImagePicker();
     final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+
     if (file != null) {
       final fileSize = await File(file.path).length();
       if (_currentTotalSize + fileSize > maxTotalSize) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("파일 크기는 최대 80MB까지 업로드 가능합니다."),
-            ),
+            const SnackBar(content: Text("파일 크기는 최대 80MB까지 업로드 가능합니다.")),
           );
-          return;
         }
+        return;
       }
-      if (mounted) {
-        setState(() {
-          _attachedFiles.add(file);
-          _currentTotalSize += fileSize;
-        });
+
+      setState(() {
+        _attachedFiles.add(file);
+        _currentTotalSize += fileSize;
+      });
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        try {
+          final ref = FirebaseStorage.instance.ref().child(
+              'board_files/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_${file.name}');
+          await ref.putFile(File(file.path));
+          final downloadUrl = await ref.getDownloadURL();
+
+          // HTML 이미지 태그 추가
+          setState(() {
+            _htmlImages.add('<img src="$downloadUrl" alt="첨부 이미지" />');
+          });
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("이미지 업로드 실패: $e")),
+          );
+        }
       }
     }
   }
 
   Future<void> _takePhoto() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(
-      source: ImageSource.camera,
-    );
+    final XFile? photo = await picker.pickImage(source: ImageSource.camera);
 
     if (photo != null) {
       final fileSize = await File(photo.path).length();
       if (_currentTotalSize + fileSize > maxTotalSize) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("파일 크기는 최대 80MB까지 업로드 가능합니다."),
-            ),
+            const SnackBar(content: Text("파일 크기는 최대 80MB까지 업로드 가능합니다.")),
           );
-          return;
         }
+        return;
       }
-      if (mounted) {
-        setState(() {
-          _attachedFiles.add(photo);
-          _currentTotalSize += fileSize;
-        });
+
+      setState(() {
+        _attachedFiles.add(photo);
+        _currentTotalSize += fileSize;
+      });
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        try {
+          final ref = FirebaseStorage.instance.ref().child(
+              'board_files/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_${photo.name}');
+          await ref.putFile(File(photo.path));
+          final downloadUrl = await ref.getDownloadURL();
+
+          // HTML 이미지 태그 추가
+          setState(() {
+            _htmlImages.add('<img src="$downloadUrl" alt="촬영 이미지" />');
+          });
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("이미지 업로드 실패: $e")),
+          );
+        }
       }
     }
   }
@@ -248,21 +269,15 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
               top: -8,
               child: GestureDetector(
                 onTap: () {
-                  if (mounted) {
-                    setState(() {
-                      _currentTotalSize -= File(file.path).lengthSync();
-                      _attachedFiles.remove(file);
-                    });
-                  }
+                  setState(() {
+                    _currentTotalSize -= File(file.path).lengthSync();
+                    _attachedFiles.remove(file);
+                  });
                 },
                 child: const CircleAvatar(
                   backgroundColor: Colors.red,
                   radius: 12,
-                  child: Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  child: Icon(Icons.close, color: Colors.white, size: 16),
                 ),
               ),
             ),
