@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mentors_app/components/customListTile.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/recent_views_screen.dart';
@@ -254,6 +255,12 @@ class _BoardScreenState extends State<BoardScreen> {
                     final category = board['category'] ?? '말머리 없음';
                     final commentsRef = board.reference.collection('comments');
 
+                    final boardData = board.data() as Map<String, dynamic>?;
+
+                    final hasFiles = boardData != null &&
+                        boardData.containsKey('files') &&
+                        (board['files'] as List).isNotEmpty;
+
                     return FutureBuilder<DocumentSnapshot>(
                       future: FirebaseFirestore.instance
                           .collection('users')
@@ -262,137 +269,116 @@ class _BoardScreenState extends State<BoardScreen> {
                       builder: (context, userSnapshot) {
                         if (userSnapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return const ListTile(
-                            title: Text('로딩 중...'),
-                          );
+                          return const Center(
+                              child: CircularProgressIndicator());
                         }
+
                         if (userSnapshot.hasError || !userSnapshot.hasData) {
-                          return const ListTile(
-                            title: Text('작성자 정보를 가져올 수 없습니다.'),
-                          );
+                          return const Text('작성자 정보를 가져올 수 없습니다.');
                         }
+
                         final userData =
                             userSnapshot.data!.data() as Map<String, dynamic>?;
                         final authorNickname =
                             userData?['user_nickname'] ?? '익명';
                         final profilePhotoUrl =
-                            userData?['profile_photo'] ?? '없음';
+                            userData?['profile_photo'] ?? '';
 
-                        final datas = board.data() as Map<String, dynamic>?;
+                        return FutureBuilder<QuerySnapshot>(
+                          future: commentsRef.get(),
+                          builder: (context, commentsSnapshot) {
+                            final commentsCount =
+                                commentsSnapshot.data?.docs.length ?? 0;
 
-                        final hasFiles = datas != null &&
-                            datas.containsKey('files') &&
-                            (datas['files'] as List<dynamic>).isNotEmpty;
-
-                        return FutureBuilder(
-                            future: commentsRef.get(),
-                            builder: (context, commentsSnapshot) {
-                              final commentsCount =
-                                  commentsSnapshot.data?.docs.length ?? 0;
-
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  radius: 25,
-                                  backgroundColor: Colors.grey,
-                                  backgroundImage: (profilePhotoUrl.isNotEmpty)
-                                      ? NetworkImage(profilePhotoUrl)
-                                          as ImageProvider
-                                      : null,
-                                  child: (profilePhotoUrl.isEmpty)
-                                      ? const Icon(Icons.person,
-                                          color: Colors.white)
-                                      : null,
+                            return CustomListTile(
+                              leading: CircleAvatar(
+                                radius: 25,
+                                backgroundColor: Colors.grey,
+                                backgroundImage: (profilePhotoUrl.isNotEmpty)
+                                    ? NetworkImage(profilePhotoUrl)
+                                        as ImageProvider
+                                    : null,
+                                child: (profilePhotoUrl.isEmpty)
+                                    ? const Icon(Icons.person,
+                                        color: Colors.white)
+                                    : null,
+                              ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '[$category] $title',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                      maxLines: 2,
+                                      overflow:
+                                          TextOverflow.ellipsis, // 제목 길이 제한
+                                    ),
+                                  ),
+                                  if (hasFiles) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.attach_file,
+                                        size: 16, color: Colors.grey),
+                                  ],
+                                ],
+                              ),
+                              subtitle: Text(
+                                '$authorNickname · ${createdAt != null ? DateFormat('yy.MM.dd HH:mm').format(createdAt) : '날짜 없음'}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
                                 ),
-                                title: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              '[$category] $title',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          if (hasFiles) ...[
-                                            const SizedBox(
-                                              width: 4,
-                                            ),
-                                            const Icon(
-                                              Icons.attach_file,
-                                              size: 16,
-                                              color: Colors.grey,
-                                            )
-                                          ]
-                                        ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min, // Row 크기를 최소화
+                                children: [
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.end, // 오른쪽 정렬
+                                    children: [
+                                      Text(
+                                        '조회수 $views',
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey),
                                       ),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '추천 $likeCount',
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                                subtitle: Row(
-                                  children: [
-                                    Text(
-                                      authorNickname,
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.grey),
-                                    ),
-                                    const SizedBox(
-                                      width: 25,
-                                    ),
-                                    Text(
-                                      createdAt != null
-                                          ? DateFormat('yy.MM.dd HH:mm')
-                                              .format(createdAt)
-                                          : '날짜 없음',
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.grey),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      '조회수 $views',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
+                                      Text(
+                                        '추천 $likeCount',
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '댓글 $commentsCount',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                                onTap: () {
-                                  _navigateToLoginOrDetail(
-                                    context,
-                                    boardId: board.id,
-                                    title: title,
-                                    content: content,
-                                    author: authorNickname,
-                                    authorUid: authorId,
-                                    category: category,
-                                    likes: likeCount,
-                                    views: views,
-                                    // profilePhotoUrl: profilePhotoUrl,
-                                  );
-                                },
-                              );
-                            });
+                                    ],
+                                  ),
+                                  const SizedBox(
+                                      width: 16), // 조회수/추천과 댓글 간 간격 추가
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        '댓글 $commentsCount',
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              onTap: () {
+                                _navigateToLoginOrDetail(
+                                  context,
+                                  boardId: board.id,
+                                  title: title,
+                                  content: content,
+                                  author: authorNickname,
+                                  authorUid: authorId,
+                                  category: category,
+                                  likes: likeCount,
+                                  views: views,
+                                );
+                              },
+                            );
+                          },
+                        );
                       },
                     );
                   },

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mentors_app/components/customButton.dart';
 import 'package:mentors_app/screens/join_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 
@@ -125,40 +126,34 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
+                  : CustomButton(
+                      label: "로그인",
                       onPressed: _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFFB794F4),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text(
-                        "로그인",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
+                      backgroundColor: const Color(0xFFB794F4),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      borderRadius: 24,
+                      textStyle: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
                       ),
                     ),
               const SizedBox(height: 10),
-              ElevatedButton(
+              CustomButton(
+                label: "회원가입",
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => JoinScreen(),
+                      builder: (context) => const JoinScreen(),
                     ),
                   );
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF9575CD),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text(
-                  "회원가입",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
+                backgroundColor: const Color(0xFF9575CD), // 기존 배경색 유지
+                padding: const EdgeInsets.symmetric(vertical: 14), // 기존 패딩 유지
+                borderRadius: 24, // 기존 버튼 모양 유지
+                textStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
                 ),
               ),
               SizedBox(

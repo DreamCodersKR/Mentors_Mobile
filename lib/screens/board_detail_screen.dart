@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:intl/intl.dart';
+import 'package:mentors_app/components/customListTile.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -40,6 +41,7 @@ class BoardDetailScreen extends StatefulWidget {
 class _BoardDetailScreenState extends State<BoardDetailScreen> {
   late bool _isLiked;
   late int _likeCount;
+  bool _isLoading = false;
   late String title;
   late String content;
   late String category;
@@ -298,12 +300,12 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   }
 
   Future<void> _toggleLike() async {
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그인이 필요합니다.')),
-      );
+    if (_isLoading || userId == null) {
       return;
     }
+    setState(() {
+      _isLoading = true;
+    });
 
     final boardRef =
         FirebaseFirestore.instance.collection('boards').doc(widget.boardId);
@@ -336,6 +338,10 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
       }
     } catch (e) {
       print('좋아요 상태 업데이트 실패: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -371,11 +377,54 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         'created_at': FieldValue.serverTimestamp(),
         'is_deleted': false,
       });
-      _commentController.clear();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('댓글 작성에 실패했습니다.')),
+
+      await _createNotification(
+        recipientId: widget.authorUid,
+        boardId: widget.boardId,
+        senderId: userId!,
       );
+
+      _commentController.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('댓글이 작성되었습니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('댓글 작성에 실패했습니다.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _createNotification({
+    required String recipientId,
+    required String boardId,
+    required String senderId,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'userId': recipientId,
+        'type': 'comment',
+        'referenceId': boardId,
+        'content': '누군가 회원님의 글에 댓글을 남겼습니다.',
+        'senderId': senderId,
+        'isRead': false,
+        'isDeleted': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'action': {
+          'screen': 'BoardDetailScreen',
+          'params': {
+            'boardId': boardId,
+          },
+          'priority': 'normal',
+        }
+      });
+    } catch (e) {
+      print('알림 생성 실패: $e');
     }
   }
 
@@ -608,9 +657,9 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
               .doc(widget.boardId)
               .get(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+            // if (snapshot.connectionState == ConnectionState.waiting) {
+            //   return const Center(child: CircularProgressIndicator());
+            // }
             if (snapshot.hasError || !snapshot.hasData) {
               return const Text("내용을 불러오는 중 오류가 발생했습니다.");
             }
@@ -685,10 +734,12 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                 Icons.thumb_up,
                 color: _isLiked ? Colors.red : Colors.grey,
               ),
-              onPressed: () async {
-                await _toggleLike();
-                _fetchBoardData();
-              },
+              onPressed: _isLoading
+                  ? null
+                  : () async {
+                      await _toggleLike();
+                      _fetchBoardData();
+                    },
             ),
             Text(
               "$_likeCount",
@@ -730,9 +781,9 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
           .orderBy('created_at', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        // if (snapshot.connectionState == ConnectionState.waiting) {
+        //   return const Center(child: CircularProgressIndicator());
+        // }
         if (snapshot.hasError) {
           return const Center(child: Text("오류가 발생했습니다."));
         }
@@ -785,7 +836,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                 final profilePhotoUrl = userData['profile_photo'] ?? '';
                 final userNickname = userData['user_nickname'] ?? '익명';
 
-                return ListTile(
+                return CustomListTile(
                   leading: CircleAvatar(
                     radius: 20,
                     backgroundColor: Colors.grey,
@@ -796,21 +847,15 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                         ? const Icon(Icons.person, color: Colors.white)
                         : null,
                   ),
-                  title: Text(content),
-                  subtitle: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "작성자: $userNickname",
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                      Text(
-                        createdAt != null
-                            ? DateFormat('yy.MM.dd HH:mm').format(createdAt)
-                            : '알 수 없음',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
+                  title: Text(
+                    content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    "작성자: $userNickname · ${createdAt != null ? DateFormat('yy.MM.dd HH:mm').format(createdAt) : '알 수 없음'}",
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 );
               },

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mentors_app/components/customListTile.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 
@@ -206,14 +207,23 @@ class _RecentViewsScreenState extends State<RecentViewsScreen> {
                         final updatedLikes = boardData['like_count'] ?? likes;
                         final updatedViews = boardData['views'] ?? views;
 
-                        return ListTile(
+                        return CustomListTile(
                           title: Text(
                             updatedTitle,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(updatedCategory),
+                          subtitle: Text(
+                            updatedCategory,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                          trailing: Text(
+                            '조회수 $updatedViews',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
                           onTap: () async {
                             await _incrementViews(boardId);
                             _navigateToDetail(

@@ -6,6 +6,7 @@ import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/screens/chat_list_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/my_info_screen.dart';
+import 'package:mentors_app/screens/notification_screen.dart';
 import 'package:mentors_app/screens/select_role_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/board_item.dart';
@@ -21,11 +22,29 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _checkAuthState();
+    _listenForUnreadNotifications();
+  }
+
+  void _listenForUnreadNotifications() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+      setState(() {
+        _unreadNotificationCount = snapshot.docs.length;
+      });
+    });
   }
 
   void _checkAuthState() {
@@ -37,21 +56,23 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 테스트 위해 임시 로그아웃 기능
-  // void _logout() async {
-  //   await FirebaseAuth.instance.signOut();
-  //   print('로그아웃 완료');
-  //   setState(() {});
-  // }
-
-  void navigateToLogin(BuildContext context) {
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ),
-    );
+  void _navigateToNotificationScreen(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const NotificationScreen(),
+        ),
+      );
+    }
   }
 
   Future<void> _incrementViews(String boardId) async {
@@ -187,33 +208,32 @@ class _MainScreenState extends State<MainScreen> {
           elevation: 0,
           automaticallyImplyLeading: false, // 메인 화면에서 뒤로가기 버튼 제거
           actions: [
-            // IconButton(
-            //   icon: const Icon(Icons.logout, color: Colors.black),
-            //   onPressed: _logout, // 임시 로그아웃 버튼
-            // ),
             IconButton(
-              onPressed: () => navigateToLogin(context),
+              onPressed: () => _navigateToNotificationScreen(context),
               icon: Stack(
                 children: [
                   const Icon(Icons.notifications, color: Colors.black),
-                  Positioned(
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Text(
-                        '1',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                  if (_unreadNotificationCount > 0)
+                    Positioned(
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          _unreadNotificationCount > 9
+                              ? '9+'
+                              : '$_unreadNotificationCount',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
