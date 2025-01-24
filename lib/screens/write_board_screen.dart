@@ -58,20 +58,22 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return [];
 
-    final List<String> fileUrls = [];
+    final List<String> filePaths = [];
 
     for (var file in files) {
       try {
         final ref = FirebaseStorage.instance.ref().child(
             'board_files/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_${file.name}');
-        final uploadTask = await ref.putFile(File(file.path));
-        final downloadUrl = await uploadTask.ref.getDownloadURL();
-        fileUrls.add(downloadUrl);
+        // final uploadTask = await ref.putFile(File(file.path));
+        await ref.putFile(File(file.path));
+        print('업로드된 경로: ${ref.fullPath}');
+        final storagePath = ref.fullPath; // Firebase Storage 경로 저장
+        filePaths.add('gs://${ref.bucket}/$storagePath'); // gs:// 경로 생성
       } catch (e) {
         print('파일 업로드 실패: $e');
       }
     }
-    return fileUrls;
+    return filePaths;
   }
 
   void _submitPost() async {
@@ -105,7 +107,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     });
 
     try {
-      final fileUrls = await _uploadFiles(_attachedFiles);
+      final filePaths = await _uploadFiles(_attachedFiles);
 
       final title = _titleController.text.trim();
       final content = _contentController.text.trim();
@@ -114,7 +116,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         "title": title,
         "content": content,
         "category": _selectedCategory,
-        "files": fileUrls,
+        "files": filePaths,
       };
 
       if (widget.boardId == null) {

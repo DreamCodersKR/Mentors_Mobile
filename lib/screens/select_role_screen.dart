@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mentors_app/screens/question_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 
 class MentorMenteeScreen extends StatefulWidget {
@@ -58,6 +59,12 @@ class _MentorMenteeScreenState extends State<MentorMenteeScreen> {
                 ),
                 onTap: () {
                   // 멘토 선택 동작
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const QuestionScreen(),
+                    ),
+                  );
                 },
               ),
             ),
@@ -81,6 +88,12 @@ class _MentorMenteeScreenState extends State<MentorMenteeScreen> {
                 ),
                 onTap: () {
                   // 멘티 선택 동작
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const QuestionScreen(),
+                    ),
+                  );
                 },
               ),
             ),

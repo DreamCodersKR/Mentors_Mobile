@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class BoardDetailScreen extends StatefulWidget {
   final String boardId;
@@ -79,30 +81,136 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     }
   }
 
-  Future<void> _downloadFile(String url, String filename) async {
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final directory = await getApplicationDocumentsDirectory();
-        final filePath = '${directory.path}/$filename';
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
+  // Firebase Storage의 gs:// 경로를 HTTP URL로 변환하는 함수
+  String getHttpUrl(String storageUrl) {
+    if (storageUrl.startsWith('gs://')) {
+      final bucketName = 'mentors-app-fb958.appspot.com'; // storage 버킷 이름
+      final filePath = storageUrl.replaceFirst('gs://$bucketName/', '');
+      return 'https://firebasestorage.googleapis.com/v0/b/$bucketName/o/$filePath?alt=media';
+    }
+    return storageUrl;
+  }
 
+  /// HTTP URL 또는 Storage에서 다운로드 URL 가져오기
+  Future<String> getDownloadUrl(String filePath) async {
+    try {
+      final ref = FirebaseStorage.instance.refFromURL(filePath);
+      final downloadUrl = await ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Firebase Storage에서 다운로드 URL 가져오기 실패: $e');
+    }
+  }
+
+  Future<String> getDownloadDirectory() async {
+    final directory = await getExternalStorageDirectory();
+    return directory?.path ?? '/storage/emulated/0/Download';
+  }
+
+  Future<void> _downloadFile(String filePath, String filename) async {
+    try {
+      // 저장소 권한 요청
+      bool hasPermission = await _requestStoragePermission();
+
+      // Android 11 이상에서는 manageExternalStorage 권한도 확인
+      if (Platform.isAndroid && !hasPermission) {
+        hasPermission = await _requestManageStoragePermission();
+      }
+
+      if (!hasPermission) {
+        // 권한이 없으면 메시지를 띄우고 함수 종료
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('파일 다운로드 완료: $filename')),
+            const SnackBar(
+              content: Text('파일 다운로드를 위해 저장소 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
+            ),
           );
         }
-      } else {
-        throw Exception('다운로드 실패');
+        return;
       }
-    } catch (e) {
+
+      // 다운로드 URL 가져오기
+      final downloadUrl = await getDownloadUrl(filePath);
+      final response = await http.get(Uri.parse(downloadUrl));
+      if (response.statusCode != 200) {
+        throw Exception('파일 다운로드 실패: HTTP ${response.statusCode}');
+      }
+
+      // 다운로드 폴더 경로 생성
+      final directory = Directory('/storage/emulated/0/Download');
+      if (!directory.existsSync()) {
+        directory.createSync(recursive: true);
+      }
+
+      // 파일 저장
+      final savedFilePath = '${directory.path}/$filename';
+      final file = File(savedFilePath);
+      await file.writeAsBytes(response.bodyBytes);
+
+      // 성공 메시지
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('파일 다운로드 중 오류 발생 $e')),
+          SnackBar(content: Text('파일 다운로드 완료: $savedFilePath')),
+        );
+      }
+    } catch (e) {
+      print('파일 다운로드 오류: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('파일 다운로드 실패: $e')),
         );
       }
     }
+  }
+
+  Future<bool> _requestStoragePermission() async {
+    final status = await Permission.storage.status;
+
+    if (status.isGranted) {
+      return true; // 권한이 이미 허용됨
+    }
+
+    if (status.isPermanentlyDenied) {
+      // 권한이 영구적으로 거부된 경우 설정으로 안내
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('저장소 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
+          ),
+        );
+        await openAppSettings();
+      }
+      return false;
+    }
+
+    // 권한 요청
+    final result = await Permission.storage.request();
+    return result.isGranted;
+  }
+
+  Future<bool> _requestManageStoragePermission() async {
+    final status = await Permission.manageExternalStorage.status;
+
+    if (status.isGranted) {
+      return true; // 권한이 이미 허용됨
+    }
+
+    if (status.isPermanentlyDenied) {
+      // 권한이 영구적으로 거부된 경우 설정으로 안내
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('외부 저장소 관리 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
+          ),
+        );
+        await openAppSettings();
+      }
+      return false;
+    }
+
+    // 권한 요청
+    final result = await Permission.manageExternalStorage.request();
+    return result.isGranted;
   }
 
   Future<void> _addRecentView() async {
@@ -393,84 +501,9 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        FutureBuilder<DocumentSnapshot>(
-                          future: FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(widget.authorUid)
-                              .get(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const CircleAvatar(
-                                backgroundColor: Colors.grey,
-                                child: Icon(
-                                  Icons.person_2_sharp,
-                                  color: Colors.white,
-                                ),
-                              );
-                            }
-                            if (snapshot.hasError || !snapshot.hasData) {
-                              return const CircleAvatar(
-                                backgroundColor: Colors.grey,
-                                child: Icon(
-                                  Icons.person_2_sharp,
-                                  color: Colors.white,
-                                ),
-                              );
-                            }
-                            final userData =
-                                snapshot.data?.data() as Map<String, dynamic>?;
-                            final profilePhotoUrl =
-                                userData?['profile_photo'] ?? '';
-
-                            return CircleAvatar(
-                              radius: 25,
-                              backgroundColor: Colors.grey,
-                              backgroundImage: (profilePhotoUrl.isNotEmpty)
-                                  ? NetworkImage(profilePhotoUrl)
-                                  : null,
-                              child: (profilePhotoUrl.isEmpty)
-                                  ? const Icon(Icons.person,
-                                      color: Colors.white)
-                                  : null,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          widget.author,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildAuthorInfo(),
                     const SizedBox(height: 20),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      content,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      "카테고리: $category",
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
+                    _buildTitleAndContent(),
                     const Divider(),
                     if (files != null && files!.isNotEmpty) ...[
                       const Text(
@@ -481,235 +514,291 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxHeight: 120,
-                        ),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: files!.length,
-                          itemBuilder: (context, index) {
-                            final fileUrl = files![index];
-                            final fileName =
-                                Uri.parse(fileUrl).pathSegments.last;
-
-                            return ListTile(
-                              leading: const Icon(Icons.attach_file),
-                              title: Text(
-                                fileName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: IconButton(
-                                onPressed: () =>
-                                    _downloadFile(fileUrl, fileName),
-                                icon: const Icon(Icons.download),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                      _buildFileList(),
                     ],
-                    const SizedBox(height: 5),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.thumb_up,
-                                color: _isLiked ? Colors.red : Colors.grey,
-                              ),
-                              onPressed: () async {
-                                await _toggleLike();
-                                _fetchBoardData(); // 추천 후 최신 데이터를 반영
-                              },
-                            ),
-                            Text(
-                              "$_likeCount",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "조회수 ${widget.views}",
-                              style: const TextStyle(
-                                  fontSize: 14, color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                        if (_showEditDeleteButtons)
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed: _navigateToEditScreen,
-                                child: const Text(
-                                  "글 수정",
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _deleteBoard,
-                                child: const Text(
-                                  "글 삭제",
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
                     const Divider(thickness: 1),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('boards')
-                          .doc(widget.boardId)
-                          .collection('comments')
-                          .orderBy('created_at', descending: true)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-
-                        if (snapshot.hasError) {
-                          return const Center(
-                            child: Text("오류가 발생했습니다."),
-                          );
-                        }
-
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return const Center(
-                            child: Text("댓글이 없습니다."),
-                          );
-                        }
-
-                        final comments = snapshot.data!.docs;
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: comments.length,
-                          itemBuilder: (context, index) {
-                            final comment = comments[index];
-                            final authorId = comment['author_id'];
-                            final content = comment['content'];
-                            final createdAt =
-                                (comment['created_at'] as Timestamp?)?.toDate();
-
-                            return FutureBuilder<DocumentSnapshot>(
-                              future: FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(authorId)
-                                  .get(),
-                              builder: (context, userSnapshot) {
-                                if (userSnapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return ListTile(
-                                    leading: const CircleAvatar(
-                                      backgroundColor: Colors.grey,
-                                      child: Icon(Icons.person,
-                                          color: Colors.white),
-                                    ),
-                                    title: const Text('로딩 중...'),
-                                  );
-                                }
-
-                                if (userSnapshot.hasError ||
-                                    !userSnapshot.hasData) {
-                                  return ListTile(
-                                    leading: const CircleAvatar(
-                                      backgroundColor: Colors.grey,
-                                      child: Icon(
-                                        Icons.person,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    title: Text(content),
-                                    subtitle: Text(createdAt != null
-                                        ? DateFormat('yy.MM.dd HH:mm')
-                                            .format(createdAt)
-                                        : '알 수 없음'),
-                                  );
-                                }
-
-                                final userData = userSnapshot.data?.data()
-                                    as Map<String, dynamic>;
-                                final profilePhotoUrl =
-                                    userData['profile_photo'] ?? '';
-                                final userNickname =
-                                    userSnapshot.data?['user_nickname'] ?? '익명';
-                                final formattedDate = createdAt != null
-                                    ? DateFormat('yy.MM.dd HH:mm')
-                                        .format(createdAt)
-                                    : '알 수 없음';
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: Colors.grey,
-                                    backgroundImage:
-                                        (profilePhotoUrl.isNotEmpty)
-                                            ? NetworkImage(profilePhotoUrl)
-                                                as ImageProvider
-                                            : null,
-                                    child: (profilePhotoUrl.isEmpty)
-                                        ? const Icon(Icons.person,
-                                            color: Colors.white)
-                                        : null,
-                                  ),
-                                  title: Text(content),
-                                  subtitle: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "작성자: $userNickname",
-                                        style: const TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      Text(
-                                        formattedDate,
-                                        style: const TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                      )
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
+                    _buildLikeAndViews(),
+                    const Divider(thickness: 1),
+                    _buildCommentsSection(),
                   ],
                 ),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    decoration: const InputDecoration(
-                      hintText: '댓글을 입력하세요...',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: _addComment,
-                ),
-              ],
+          _buildCommentInput(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuthorInfo() {
+    return Row(
+      children: [
+        FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(widget.authorUid)
+              .get(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CircleAvatar(
+                backgroundColor: Colors.grey,
+                child: Icon(Icons.person_2_sharp, color: Colors.white),
+              );
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return const CircleAvatar(
+                backgroundColor: Colors.grey,
+                child: Icon(Icons.person_2_sharp, color: Colors.white),
+              );
+            }
+            final userData = snapshot.data?.data() as Map<String, dynamic>?;
+            final profilePhotoUrl = userData?['profile_photo'] ?? '';
+
+            return CircleAvatar(
+              radius: 25,
+              backgroundColor: Colors.grey,
+              backgroundImage: (profilePhotoUrl.isNotEmpty)
+                  ? NetworkImage(profilePhotoUrl)
+                  : null,
+              child: (profilePhotoUrl.isEmpty)
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            );
+          },
+        ),
+        const SizedBox(width: 10),
+        Text(
+          widget.author,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTitleAndContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          content,
+          style: const TextStyle(fontSize: 16),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          "카테고리: $category",
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileList() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 120),
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: files?.length ?? 0,
+        itemBuilder: (context, index) {
+          final fileUrl = files![index];
+          final fileName = Uri.parse(fileUrl).pathSegments.last;
+
+          return ListTile(
+            leading: const Icon(Icons.attach_file),
+            title: Text(
+              fileName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+            trailing: IconButton(
+              onPressed: () => _downloadFile(fileUrl, fileName),
+              icon: const Icon(Icons.download),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLikeAndViews() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: Icon(
+                Icons.thumb_up,
+                color: _isLiked ? Colors.red : Colors.grey,
+              ),
+              onPressed: () async {
+                await _toggleLike();
+                _fetchBoardData();
+              },
+            ),
+            Text(
+              "$_likeCount",
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              "조회수 ${widget.views}",
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        if (_showEditDeleteButtons)
+          Row(
+            children: [
+              TextButton(
+                onPressed: _navigateToEditScreen,
+                child: const Text("글 수정"),
+              ),
+              TextButton(
+                onPressed: _deleteBoard,
+                child: const Text(
+                  "글 삭제",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCommentsSection() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('boards')
+          .doc(widget.boardId)
+          .collection('comments')
+          .orderBy('created_at', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text("오류가 발생했습니다."));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text("댓글이 없습니다."));
+        }
+
+        final comments = snapshot.data!.docs;
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: comments.length,
+          itemBuilder: (context, index) {
+            final comment = comments[index];
+            final authorId = comment['author_id'];
+            final content = comment['content'];
+            final createdAt = (comment['created_at'] as Timestamp?)?.toDate();
+
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(authorId)
+                  .get(),
+              builder: (context, userSnapshot) {
+                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  return const ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.grey,
+                      child: Icon(Icons.person, color: Colors.white),
+                    ),
+                    title: Text('로딩 중...'),
+                  );
+                }
+
+                if (userSnapshot.hasError || !userSnapshot.hasData) {
+                  return ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.grey,
+                      child: Icon(Icons.person, color: Colors.white),
+                    ),
+                    title: Text(content),
+                    subtitle: Text(createdAt != null
+                        ? DateFormat('yy.MM.dd HH:mm').format(createdAt)
+                        : '알 수 없음'),
+                  );
+                }
+
+                final userData =
+                    userSnapshot.data?.data() as Map<String, dynamic>;
+                final profilePhotoUrl = userData['profile_photo'] ?? '';
+                final userNickname = userData['user_nickname'] ?? '익명';
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.grey,
+                    backgroundImage: (profilePhotoUrl.isNotEmpty)
+                        ? NetworkImage(profilePhotoUrl)
+                        : null,
+                    child: (profilePhotoUrl.isEmpty)
+                        ? const Icon(Icons.person, color: Colors.white)
+                        : null,
+                  ),
+                  title: Text(content),
+                  subtitle: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "작성자: $userNickname",
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                      Text(
+                        createdAt != null
+                            ? DateFormat('yy.MM.dd HH:mm').format(createdAt)
+                            : '알 수 없음',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCommentInput() {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _commentController,
+              decoration: const InputDecoration(
+                hintText: '댓글을 입력하세요...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.send, color: Colors.blueAccent),
+            onPressed: _addComment,
           ),
         ],
       ),

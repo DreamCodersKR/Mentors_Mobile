@@ -9,6 +9,23 @@ import 'package:mentors_app/widgets/bottom_nav_bar.dart';
 class MyInfoScreen extends StatelessWidget {
   const MyInfoScreen({super.key});
 
+  void _showDevelopmentModal(BuildContext context) {
+    showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('안내'),
+            content: const Text('현재 개발 중입니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              )
+            ],
+          );
+        });
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -110,16 +127,12 @@ class MyInfoScreen extends StatelessWidget {
                 _buildMenuItem(
                   icon: Icons.article,
                   title: '나의 글',
-                  onTap: () {
-                    // 나의 글 화면 이동
-                  },
+                  onTap: () => _showDevelopmentModal(context),
                 ),
                 _buildMenuItem(
                   icon: Icons.connect_without_contact,
                   title: '매칭기록',
-                  onTap: () {
-                    // 매칭기록 화면 이동
-                  },
+                  onTap: () => _showDevelopmentModal(context),
                 ),
                 const Divider(thickness: 1),
                 const SizedBox(height: 10),
@@ -127,16 +140,12 @@ class MyInfoScreen extends StatelessWidget {
                 _buildMenuItem(
                   icon: Icons.chat_bubble_outline,
                   title: '1:1 문의',
-                  onTap: () {
-                    // 1:1 문의 화면 이동
-                  },
+                  onTap: () => _showDevelopmentModal(context),
                 ),
                 _buildMenuItem(
                   icon: Icons.rate_review_outlined,
                   title: '앱 리뷰작성',
-                  onTap: () {
-                    // 앱 리뷰작성 이동
-                  },
+                  onTap: () => _showDevelopmentModal(context),
                 ),
                 const SizedBox(height: 165),
                 const BannerAdWidget(),
