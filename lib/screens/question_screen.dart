@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/screens/match_history_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/question_item.dart';
+
+final Logger logger = Logger();
 
 class QuestionScreen extends StatelessWidget {
   const QuestionScreen({super.key});
@@ -87,9 +90,9 @@ class QuestionScreen extends StatelessWidget {
                       ),
                     );
                     // 작성된 데이터 출력 (디버깅용)
-                    print('Q1: ${question1Controller.text}');
-                    print('Q2: ${question2Controller.text}');
-                    print('Q3: ${question3Controller.text}');
+                    logger.i('Q1: ${question1Controller.text}');
+                    logger.i('Q2: ${question2Controller.text}');
+                    logger.i('Q3: ${question3Controller.text}');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF9575CD),

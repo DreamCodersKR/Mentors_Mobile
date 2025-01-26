@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /profile_photos/{userId}/{allPaths=**} {
+      // request.auth가 null이어도 회원가입 시 프로필 사진 업로드 허용
+      allow write: if true;
+      allow read: if request.auth != null;
+    }
+
+    match /board_files/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

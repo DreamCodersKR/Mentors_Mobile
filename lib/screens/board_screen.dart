@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/components/customListTile.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
@@ -19,6 +20,8 @@ class BoardScreen extends StatefulWidget {
 
 class _BoardScreenState extends State<BoardScreen> {
   String _selectedCategory = '전체';
+
+  final Logger logger = Logger();
 
   final List<String> _categories = [
     '전체',
@@ -220,7 +223,7 @@ class _BoardScreenState extends State<BoardScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  print("Firestore 오류: ${snapshot.error}");
+                  logger.e("Firestore 오류: ${snapshot.error}");
                   return const Center(
                     child: Text("오류가 발생했습니다. 다시 시도해주세요."),
                   );

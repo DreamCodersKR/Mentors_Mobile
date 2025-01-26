@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/screens/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,6 +18,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _logoPositionAnimation;
   bool _isLogoAnimationCompleted = false;
+
+  final Logger logger = Logger();
 
   @override
   void initState() {
@@ -47,15 +53,49 @@ class _SplashScreenState extends State<SplashScreen>
       });
     });
 
+    _checkAndUpdateFCMToken();
+
     // 스플래쉬 화면 종료
     Future.delayed(const Duration(seconds: 6), () {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => MainScreen()),
+          MaterialPageRoute(builder: (context) => const MainScreen()),
         );
       }
     });
+  }
+
+  Future<void> _checkAndUpdateFCMToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      logger.i("사용자가 로그인되어 있지 않습니다.");
+      return;
+    }
+
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        final userDocRef =
+            FirebaseFirestore.instance.collection('users').doc(user.uid);
+        final userDoc = await userDocRef.get();
+
+        if (userDoc.exists) {
+          final existingTokens = userDoc.data()?['fcm_tokens'] ?? [];
+          if (!existingTokens.contains(fcmToken)) {
+            await userDocRef.update({
+              'fcm_tokens': FieldValue.arrayUnion([fcmToken]),
+              'updated_at': FieldValue.serverTimestamp(),
+            });
+            logger.i("새로운 FCM 토큰 추가 : $fcmToken");
+          } else {
+            logger.i("이미 존재하는 FCM 토큰입니다 : $fcmToken");
+          }
+        }
+      }
+    } catch (e) {
+      logger.e("FCM 토큰 업데이트 실패: $e");
+    }
   }
 
   @override

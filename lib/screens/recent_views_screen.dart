@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/components/customListTile.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
@@ -13,6 +14,8 @@ class RecentViewsScreen extends StatefulWidget {
 }
 
 class _RecentViewsScreenState extends State<RecentViewsScreen> {
+  final Logger logger = Logger();
+
   Future<void> _incrementViews(String boardId) async {
     try {
       await FirebaseFirestore.instance
@@ -22,7 +25,7 @@ class _RecentViewsScreenState extends State<RecentViewsScreen> {
         'views': FieldValue.increment(1),
       });
     } catch (e) {
-      print('조회수 증가 실패: $e');
+      logger.e('조회수 증가 실패: $e');
     }
   }
 
@@ -72,7 +75,7 @@ class _RecentViewsScreenState extends State<RecentViewsScreen> {
         _showDeletedDialog(context);
       }
     } catch (e) {
-      print('게시글 데이터 로드 실패: $e');
+      logger.e('게시글 데이터 로드 실패: $e');
     }
 
     // Navigator.push(
@@ -150,7 +153,7 @@ class _RecentViewsScreenState extends State<RecentViewsScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  print("Firestore 오류: ${snapshot.error}");
+                  logger.e('Firestore 오류: ${snapshot.error}');
                   return const Center(
                     child: Text("오류가 발생했습니다. 다시 시도해주세요."),
                   );

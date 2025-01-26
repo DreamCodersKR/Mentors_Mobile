@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -22,6 +23,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   File? _profileImage;
   String? _currentProfileImageUrl;
   bool isLoading = false;
+
+  final Logger logger = Logger();
 
   @override
   void initState() {
@@ -115,7 +118,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       return downloadUrl;
     } catch (e) {
-      print('프로필 사진 업로드 실패 : $e');
+      logger.e('프로필 사진 업로드 실패 : $e');
       return null;
     }
   }
@@ -147,13 +150,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'user_nickname': newNickname,
           'tel': _contactController.text.trim(),
           'profile_photo': newProfileImageUrl ?? _currentProfileImageUrl ?? '',
+          'updated_at': FieldValue.serverTimestamp(),
         });
 
         if (mounted) {
           Navigator.pop(context);
         }
       } catch (e) {
-        print('Profile save error: $e');
+        logger.e('프로필 저장 실패 : $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('프로필 저장 실패: $e')),

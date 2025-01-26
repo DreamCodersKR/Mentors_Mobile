@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/screens/board_detail_screen.dart';
+
+final Logger logger = Logger();
 
 class SearchResultScreen extends StatelessWidget {
   final String searchQuery;
@@ -42,7 +45,7 @@ class SearchResultScreen extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
-            print("Firestore 오류: ${snapshot.error}");
+            logger.e('Firestore 오류: ${snapshot.error}');
             return Center(
               child: Text("검색 결과를 불러오는 중 오류가 발생했습니다"),
             );

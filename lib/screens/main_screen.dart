@@ -37,13 +37,15 @@ class _MainScreenState extends State<MainScreen> {
 
     FirebaseFirestore.instance
         .collection('notifications')
-        .where('userId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
+        .where('user_id', isEqualTo: userId)
+        .where('is_read', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
-      setState(() {
-        _unreadNotificationCount = snapshot.docs.length;
-      });
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = snapshot.docs.length;
+        });
+      }
     });
   }
 

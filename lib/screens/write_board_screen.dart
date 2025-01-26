@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:logger/logger.dart';
 
 class WriteBoardScreen extends StatefulWidget {
   final String? boardId;
@@ -46,6 +47,8 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
   static const int maxTotalSize = 80 * 1024 * 1024;
   int _currentTotalSize = 0;
 
+  final Logger logger = Logger();
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +71,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         final downloadUrl = await ref.getDownloadURL();
         filePaths.add(downloadUrl);
       } catch (e) {
-        print('파일 업로드 실패: $e');
+        logger.e('파일 업로드 실패: $e');
       }
     }
     return filePaths;
@@ -198,9 +201,11 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
             _htmlImages.add('<img src="$downloadUrl" alt="첨부 이미지" />');
           });
         } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("이미지 업로드 실패: $e")),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("이미지 업로드 실패: $e")),
+            );
+          }
         }
       }
     }
@@ -239,9 +244,11 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
             _htmlImages.add('<img src="$downloadUrl" alt="촬영 이미지" />');
           });
         } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("이미지 업로드 실패: $e")),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("이미지 업로드 실패: $e")),
+            );
+          }
         }
       }
     }

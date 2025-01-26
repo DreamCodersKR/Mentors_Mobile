@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:intl/intl.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/components/customListTile.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
 import 'package:http/http.dart' as http;
@@ -48,8 +49,11 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
   bool _showEditDeleteButtons = false;
   List<dynamic>? files;
+  bool _isCommentLoading = false;
 
   final TextEditingController _commentController = TextEditingController();
+
+  final Logger logger = Logger();
 
   @override
   void initState() {
@@ -80,7 +84,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         });
       }
     } catch (e) {
-      print('파일 정보를 가져오는 중 오류 발생: $e');
+      logger.e('파일 정보를 가져오는 중 오류 발생: $e');
     }
   }
 
@@ -157,7 +161,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         );
       }
     } catch (e) {
-      print('파일 다운로드 오류: $e');
+      logger.e('파일 다운로드 오류: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('파일 다운로드 실패: $e')),
@@ -255,7 +259,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         await recentViewRef.doc(oldestDoc.id).delete();
       }
     } catch (e) {
-      print('최근 본 게시글 추가 실패: $e');
+      logger.e('최근 본 게시글 추가 실패: $e');
     }
   }
 
@@ -276,7 +280,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         _showEditDeleteButtons = isAuthor || isAdmin;
       });
     } catch (e) {
-      print('권한 확인 실패: $e');
+      logger.e('권한 확인 실패: $e');
     }
   }
 
@@ -295,7 +299,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         _isLiked = likeDoc.exists;
       });
     } catch (e) {
-      print('좋아요 상태 확인 실패: $e');
+      logger.e('좋아요 상태 확인 실패: $e');
     }
   }
 
@@ -337,7 +341,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         });
       }
     } catch (e) {
-      print('좋아요 상태 업데이트 실패: $e');
+      logger.e('좋아요 상태 업데이트 실패: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -346,6 +350,10 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   }
 
   Future<void> _addComment() async {
+    if (_isCommentLoading) {
+      return;
+    }
+
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -365,24 +373,34 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
       return;
     }
 
+    setState(() {
+      _isCommentLoading = true;
+    });
+
     try {
+      if (widget.authorUid.isEmpty) {
+        throw Exception('유효하지 않은 게시글 작성자 입니다.');
+      }
+
       final commentRef = FirebaseFirestore.instance
           .collection('boards')
           .doc(widget.boardId)
           .collection('comments');
 
-      await commentRef.add({
-        'author_id': userId,
-        'content': commentContent,
-        'created_at': FieldValue.serverTimestamp(),
-        'is_deleted': false,
-      });
-
-      await _createNotification(
-        recipientId: widget.authorUid,
-        boardId: widget.boardId,
-        senderId: userId!,
-      );
+      await Future.wait([
+        commentRef.add({
+          'author_id': userId,
+          'content': commentContent,
+          'created_at': FieldValue.serverTimestamp(),
+          'is_deleted': false,
+        }),
+        _createNotification(
+          recipientId: widget.authorUid,
+          boardId: widget.boardId,
+          senderId: userId!,
+          title: widget.title,
+        ),
+      ]);
 
       _commentController.clear();
 
@@ -397,6 +415,12 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
           const SnackBar(content: Text('댓글 작성에 실패했습니다.')),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCommentLoading = false;
+        });
+      }
     }
   }
 
@@ -404,27 +428,36 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     required String recipientId,
     required String boardId,
     required String senderId,
+    required String title,
   }) async {
     try {
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'userId': recipientId,
-        'type': 'comment',
-        'referenceId': boardId,
-        'content': '누군가 회원님의 글에 댓글을 남겼습니다.',
-        'senderId': senderId,
-        'isRead': false,
-        'isDeleted': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'action': {
-          'screen': 'BoardDetailScreen',
-          'params': {
-            'boardId': boardId,
-          },
-          'priority': 'normal',
-        }
-      });
+      if (userId != widget.authorUid) {
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'user_id': recipientId,
+          'type': 'comment',
+          'reference_id': boardId,
+          'content': '누군가 회원님의 글에 댓글을 남겼습니다.',
+          'sender_id': senderId,
+          'is_read': false,
+          'is_deleted': false,
+          'created_at': FieldValue.serverTimestamp(),
+          'action': {
+            'screen': 'BoardDetailScreen',
+            'params': {
+              'board_id': boardId,
+              'title': title,
+            },
+            'priority': 'normal',
+          }
+        });
+      }
     } catch (e) {
-      print('알림 생성 실패: $e');
+      logger.e('알림 생성 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류 발생: $e')),
+        );
+      }
     }
   }
 
@@ -519,13 +552,18 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('게시글이 삭제되었습니다.')),
+            const SnackBar(content: Text('게시글이 삭제되었거나 존재하지 않습니다.')),
           );
           Navigator.pop(context);
         }
       }
     } catch (e) {
-      print('게시글 데이터를 가져오는 중 오류 발생: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('데이터를 불러오는 중 오류가 발생했습니다: $e')),
+        );
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -881,10 +919,12 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.send, color: Colors.blueAccent),
-            onPressed: _addComment,
-          ),
+          _isCommentLoading
+              ? const CircularProgressIndicator()
+              : IconButton(
+                  icon: const Icon(Icons.send, color: Colors.blueAccent),
+                  onPressed: _addComment,
+                ),
         ],
       ),
     );

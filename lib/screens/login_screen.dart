@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/components/customButton.dart';
 import 'package:mentors_app/screens/join_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
@@ -15,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  final Logger logger = Logger();
 
   Future<void> _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -29,10 +33,38 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      final user = userCredential.user;
+
+      if (user != null) {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) {
+          final userDocRef =
+              FirebaseFirestore.instance.collection('users').doc(user.uid);
+          final userDoc = await userDocRef.get();
+
+          if (userDoc.exists) {
+            final existingTokens = userDoc.data()?['fcm_tokens'] ?? [];
+            if (!existingTokens.contains(fcmToken)) {
+              await userDocRef.update({
+                'fcm_tokens': FieldValue.arrayUnion([fcmToken]),
+                'updated_at': FieldValue.serverTimestamp(),
+              });
+              logger.i("새로운 FCM 토큰 추가 : $fcmToken");
+            } else {
+              logger.i("이미 존재하는 FCM 토큰입니다 : $fcmToken");
+              await userDocRef.update({
+                'updated_at': FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        }
+      }
 
       if (!mounted) return;
 

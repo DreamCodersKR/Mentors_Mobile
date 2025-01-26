@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,33 +15,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _vibrationEnabled = true;
   bool _doNotDisturbEnabled = false;
 
-  void _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("로그아웃 되었습니다.")),
-    );
-    Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+  final Logger logger = Logger();
+
+  Future<void> _logout() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // 현재 기기의 FCM 토큰 가져오기
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+
+        // Firestore에서 해당 토큰 삭제
+        if (fcmToken != null) {
+          final userDocRef =
+              FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+          await userDocRef.update({
+            'fcm_tokens': FieldValue.arrayRemove([fcmToken]),
+          });
+          logger.i('FCM 토큰 제거: $fcmToken');
+        }
+
+        // Firebase Auth 로그아웃
+        await FirebaseAuth.instance.signOut();
+        logger.i('사용자 로그아웃 완료');
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("로그아웃 되었습니다.")),
+      );
+
+      Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+    } catch (e) {
+      logger.e('로그아웃 중 오류 발생: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("로그아웃 중 오류 발생: $e")),
+      );
+    }
   }
 
   void _deleteAccount() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      await user?.delete();
+      if (user != null) {
+        // Firestore에서 사용자 문서 삭제
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .delete();
+        // Firebase Auth 사용자 삭제
+        await user.delete();
+        logger.i('사용자 계정 삭제 완료');
+      }
+
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("회원 탈퇴가 완료되었습니다.")),
       );
+
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("회원 탈퇴에 실패했습니다: ${e.message}")),
       );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("오류 발생: $e")),
+      );
     }
   }
 
   void _navigateToDoNotDisturbSettings() {
-    // 방해 금지 시간 설정 화면으로 이동
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -54,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context); // 뒤로가기 버튼
+            Navigator.pop(context);
           },
         ),
         title: const Text(
@@ -153,7 +202,7 @@ class DoNotDisturbSettingsScreen extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context); // 뒤로가기 버튼
+            Navigator.pop(context);
           },
         ),
         title: const Text(

@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:logger/logger.dart';
 
 class JoinScreen extends StatefulWidget {
   const JoinScreen({super.key});
@@ -24,6 +26,8 @@ class _JoinScreenState extends State<JoinScreen> {
   final TextEditingController _birthdateController = TextEditingController();
   final TextEditingController _telController = TextEditingController();
   final TextEditingController _nicknameController = TextEditingController();
+
+  final Logger logger = Logger();
 
   String _gender = "";
   bool _isLoading = false;
@@ -67,10 +71,10 @@ class _JoinScreenState extends State<JoinScreen> {
       final uploadTask = await ref.putFile(_profileImage!);
 
       final downloadUrl = await uploadTask.ref.getDownloadURL();
-      print('프로필 사진 업로드 성공: $downloadUrl');
+      logger.i('프로필 사진 업로드 성공: $downloadUrl');
       return downloadUrl;
     } catch (e) {
-      print('프로필 사진 업로드 실패: $e');
+      logger.e('프로필 사진 업로드 실패: $e');
       return null;
     }
   }
@@ -99,8 +103,22 @@ class _JoinScreenState extends State<JoinScreen> {
       final user = userCredential.user;
 
       String? profilePhotoUrl;
+      String? fcmToken;
+
       if (user != null) {
+        // FCM 토큰 생성
+        fcmToken = await FirebaseMessaging.instance.getToken();
+        logger.i("FCM 토큰 생성: $fcmToken");
+
+        // 프로필 이미지 업로드
         profilePhotoUrl = await _uploadProfileImage(user.uid);
+        if (profilePhotoUrl == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("프로필 사진 업로드에 실패했습니다.")),
+            );
+          }
+        }
       }
 
       // Firestore에 사용자 추가 정보 저장
@@ -114,6 +132,7 @@ class _JoinScreenState extends State<JoinScreen> {
           "birthdate": _birthdateController.text.trim(),
           "role": "normal",
           "profile_photo": profilePhotoUrl ?? "",
+          "fcm_tokens": fcmToken != null ? [fcmToken] : [],
           "created_at": FieldValue.serverTimestamp(),
           "is_deleted": false,
         });
@@ -308,36 +327,6 @@ class _JoinScreenState extends State<JoinScreen> {
                   return null;
                 },
               ),
-              // const SizedBox(height: 16),
-              // const Text("시니어 / 주니어 여부"),
-              // Row(
-              //   children: [
-              //     Expanded(
-              //       child: RadioListTile(
-              //         value: "시니어",
-              //         groupValue: _seniorOrJunior,
-              //         title: const Text("시니어"),
-              //         onChanged: (value) {
-              //           setState(() {
-              //             _seniorOrJunior = value.toString();
-              //           });
-              //         },
-              //       ),
-              //     ),
-              //     Expanded(
-              //       child: RadioListTile(
-              //         value: "주니어",
-              //         groupValue: _seniorOrJunior,
-              //         title: const Text("주니어"),
-              //         onChanged: (value) {
-              //           setState(() {
-              //             _seniorOrJunior = value.toString();
-              //           });
-              //         },
-              //       ),
-              //     ),
-              //   ],
-              // ),
               const SizedBox(height: 20),
               _isLoading
                   ? const Center(child: CircularProgressIndicator())

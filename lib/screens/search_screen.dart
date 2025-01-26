@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:mentors_app/screens/search_result_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<String> _recentSearches = [];
+  final Logger logger = Logger();
 
   @override
   void initState() {
@@ -40,7 +42,7 @@ class _SearchScreenState extends State<SearchScreen> {
             querySnapshot.docs.map((doc) => doc['query'] as String).toList();
       });
     } catch (e) {
-      print('최근 검색어 불러오기 오류: $e');
+      logger.e('최근 검색어 불러오기 오류: $e');
     }
   }
 
@@ -70,7 +72,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
       _loadRecentSearches(); // UI 업데이트
     } catch (e) {
-      print('검색어 저장 오류: $e');
+      logger.e('검색어 저장 오류: $e');
     }
   }
 
@@ -94,7 +96,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _recentSearches.clear();
       });
     } catch (e) {
-      print('검색어 전체 삭제 오류: $e');
+      logger.e('검색어 전체 삭제 오류: $e');
     }
   }
 
@@ -119,7 +121,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _recentSearches.remove(searchItem);
       });
     } catch (e) {
-      print('검색어 삭제 오류: $e');
+      logger.e('검색어 삭제 오류: $e');
     }
   }
 
