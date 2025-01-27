@@ -23,7 +23,7 @@ class NotificationScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
-            onPressed: () => _deleteAllNotifications(),
+            onPressed: () => _deleteAllNotifications(context),
             icon: const Icon(Icons.delete, color: Colors.black),
           ),
         ],
@@ -187,18 +187,58 @@ class NotificationScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _deleteAllNotifications() async {
+  Future<void> _markAllAsRead(BuildContext context) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
 
-    final notificationQuery = FirebaseFirestore.instance
-        .collection('notifications')
-        .where('user_id', isEqualTo: userId)
-        .where('is_deleted', isEqualTo: false);
-    final snapshot = await notificationQuery.get();
+    try {
+      final notifications = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('user_id', isEqualTo: userId)
+          .where('is_read', isEqualTo: false)
+          .get();
 
-    for (var doc in snapshot.docs) {
-      await doc.reference.update({'is_deleted': true});
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in notifications.docs) {
+        batch.update(doc.reference, {'is_read': true});
+      }
+
+      await batch.commit();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('모든 알림을 읽음 처리했습니다.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('알림 처리 중 오류 발생: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteAllNotifications(BuildContext context) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final notifications = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('user_id', isEqualTo: userId)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in notifications.docs) {
+        batch.update(doc.reference, {'is_deleted': true});
+      }
+
+      await batch.commit();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('모든 알림을 삭제했습니다.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('알림 삭제 중 오류 발생: $e')),
+      );
     }
   }
 

@@ -39,6 +39,7 @@ class _MainScreenState extends State<MainScreen> {
         .collection('notifications')
         .where('user_id', isEqualTo: userId)
         .where('is_read', isEqualTo: false)
+        .where('is_deleted', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
       if (mounted) {
