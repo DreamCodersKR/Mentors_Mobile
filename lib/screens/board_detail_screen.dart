@@ -5,11 +5,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
-import 'package:intl/intl.dart';
 import 'package:logger/logger.dart';
-import 'package:mentors_app/components/customListTile.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
 import 'package:http/http.dart' as http;
+import 'package:mentors_app/widgets/author_info.dart';
+import 'package:mentors_app/widgets/comments_section.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -589,7 +589,10 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildAuthorInfo(),
+                    AuthorInfo(
+                      authorUid: widget.authorUid,
+                      author: widget.author,
+                    ),
                     const SizedBox(height: 20),
                     _buildTitleAndContent(),
                     const Divider(),
@@ -607,7 +610,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                     const Divider(thickness: 1),
                     _buildLikeAndViews(),
                     const Divider(thickness: 1),
-                    _buildCommentsSection(),
+                    CommentsSection(boardId: widget.boardId),
                   ],
                 ),
               ),
@@ -616,54 +619,6 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
           _buildCommentInput(),
         ],
       ),
-    );
-  }
-
-  Widget _buildAuthorInfo() {
-    return Row(
-      children: [
-        FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('users')
-              .doc(widget.authorUid)
-              .get(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CircleAvatar(
-                backgroundColor: Colors.grey,
-                child: Icon(Icons.person_2_sharp, color: Colors.white),
-              );
-            }
-            if (snapshot.hasError || !snapshot.hasData) {
-              return const CircleAvatar(
-                backgroundColor: Colors.grey,
-                child: Icon(Icons.person_2_sharp, color: Colors.white),
-              );
-            }
-            final userData = snapshot.data?.data() as Map<String, dynamic>?;
-            final profilePhotoUrl = userData?['profile_photo'] ?? '';
-
-            return CircleAvatar(
-              radius: 25,
-              backgroundColor: Colors.grey,
-              backgroundImage: (profilePhotoUrl.isNotEmpty)
-                  ? NetworkImage(profilePhotoUrl)
-                  : null,
-              child: (profilePhotoUrl.isEmpty)
-                  ? const Icon(Icons.person, color: Colors.white)
-                  : null,
-            );
-          },
-        ),
-        const SizedBox(width: 10),
-        Text(
-          widget.author,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-      ],
     );
   }
 
@@ -807,100 +762,6 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
             ],
           ),
       ],
-    );
-  }
-
-  Widget _buildCommentsSection() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('boards')
-          .doc(widget.boardId)
-          .collection('comments')
-          .orderBy('created_at', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        // if (snapshot.connectionState == ConnectionState.waiting) {
-        //   return const Center(child: CircularProgressIndicator());
-        // }
-        if (snapshot.hasError) {
-          return const Center(child: Text("오류가 발생했습니다."));
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("댓글이 없습니다."));
-        }
-
-        final comments = snapshot.data!.docs;
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: comments.length,
-          itemBuilder: (context, index) {
-            final comment = comments[index];
-            final authorId = comment['author_id'];
-            final content = comment['content'];
-            final createdAt = (comment['created_at'] as Timestamp?)?.toDate();
-
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(authorId)
-                  .get(),
-              builder: (context, userSnapshot) {
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
-                  return const ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.grey,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                    title: Text('로딩 중...'),
-                  );
-                }
-
-                if (userSnapshot.hasError || !userSnapshot.hasData) {
-                  return ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Colors.grey,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                    title: Text(content),
-                    subtitle: Text(createdAt != null
-                        ? DateFormat('yy.MM.dd HH:mm').format(createdAt)
-                        : '알 수 없음'),
-                  );
-                }
-
-                final userData =
-                    userSnapshot.data?.data() as Map<String, dynamic>;
-                final profilePhotoUrl = userData['profile_photo'] ?? '';
-                final userNickname = userData['user_nickname'] ?? '익명';
-
-                return CustomListTile(
-                  leading: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.grey,
-                    backgroundImage: (profilePhotoUrl.isNotEmpty)
-                        ? NetworkImage(profilePhotoUrl)
-                        : null,
-                    child: (profilePhotoUrl.isEmpty)
-                        ? const Icon(Icons.person, color: Colors.white)
-                        : null,
-                  ),
-                  title: Text(
-                    content,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    "작성자: $userNickname · ${createdAt != null ? DateFormat('yy.MM.dd HH:mm').format(createdAt) : '알 수 없음'}",
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
     );
   }
 
