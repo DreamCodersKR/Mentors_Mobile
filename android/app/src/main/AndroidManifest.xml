@@ -19,7 +19,7 @@
             </intent-filter>
         </service>
         <activity
-            android:name=".MainActivity"
+            android:name="com.example.mentors_app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -32,8 +32,11 @@
                  while the Flutter UI initializes. After that, this theme continues
                  to determine the Window background behind the Flutter UI. -->
             <meta-data
-        android:name="flutterEngineGroup"
-        android:value="default" />
+                android:name="flutterEngineGroup"
+                android:value="default" />
+            <meta-data
+                android:name="com.google.firebase.messaging.default_notification_channel_id"
+                android:value="default_channel" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

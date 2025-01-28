@@ -26,6 +26,8 @@ android {
         implementation 'com.google.android.gms:play-services-ads:22.0.0' // 최신 Google Play Services Ads SDK
         implementation platform('com.google.firebase:firebase-bom:32.0.0')
         implementation 'com.google.firebase:firebase-messaging'
+        implementation 'com.google.firebase:firebase-auth'
+        implementation 'com.google.firebase:firebase-firestore'
     }
 
     compileSdkVersion 34

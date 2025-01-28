@@ -65,6 +65,16 @@ export const sendNotificationOnComment = onDocumentCreated(
               title: "새로운 댓글이 달렸습니다!",
               body: commentText,
             },
+            data: {
+              action: JSON.stringify({
+                screen: "BoardDetailScreen",
+                params: {
+                  board_id: boardId,
+                  title: boardDoc.data()?.title || "제목 없음",
+                  author_uid: boardDoc.data()?.author_id || "작성자 없음",
+                },
+              }),
+            },
             token,
           });
           validTokens.push(token);
@@ -87,6 +97,22 @@ export const sendNotificationOnComment = onDocumentCreated(
       await admin.firestore().collection("users").doc(boardOwnerId).update({
         fcm_tokens: validTokens,
       });
+
+      console.log("Firestore temp_navigation 데이터 추가");
+      await admin
+        .firestore()
+        .collection("temp_navigation")
+        .doc("pending_navigation")
+        .set({
+          screen: "BoardDetailScreen",
+          params: {
+            board_id: boardId,
+            title: boardDoc.data()?.title || "제목 없음",
+            author_uid: boardDoc.data()?.author_id || "작성자 없음",
+          },
+          processed: false,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
 
       console.log("알림 전송 성공!");
     } catch (error) {
