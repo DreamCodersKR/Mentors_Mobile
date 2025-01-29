@@ -8,6 +8,7 @@ import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/my_info_screen.dart';
 import 'package:mentors_app/screens/notification_screen.dart';
 import 'package:mentors_app/screens/select_role_screen.dart';
+import 'package:mentors_app/services/category_service.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/board_item.dart';
 import 'package:mentors_app/widgets/bottom_nav_bar.dart';
@@ -142,16 +143,25 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _checkAndNavigateCategory(BuildContext context, String categoryName) {
+  void _checkAndNavigateCategory(
+      BuildContext context, String categoryName) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       Navigator.pushNamed(context, '/login');
-    } else {
+      return;
+    }
+
+    final categoryService = CategoryService();
+    final categoryDoc = await categoryService.getCategoryByName(categoryName);
+
+    if (categoryDoc != null) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => MentorMenteeScreen(
             categoryName: categoryName,
+            categoryId: categoryDoc.id,
+            // categoryDoc: categoryDoc, // 필요한 경우 전체 문서 전달
           ),
         ),
       );
@@ -292,9 +302,9 @@ class _MainScreenState extends State<MainScreen> {
                       onTap: () => _checkAndNavigateCategory(context, "금융/경제"),
                     ),
                     CategoryIcon(
-                      label: "기타",
-                      icon: Icons.more_horiz,
-                      onTap: () => _checkAndNavigateCategory(context, "기타"),
+                      label: "취미",
+                      icon: Icons.extension,
+                      onTap: () => _checkAndNavigateCategory(context, "취미"),
                     ),
                   ],
                 ),

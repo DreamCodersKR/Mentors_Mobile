@@ -1,120 +1,278 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
-import 'package:mentors_app/screens/match_history_screen.dart';
+import 'package:mentors_app/services/mentorship_service.dart';
+import 'package:mentors_app/services/question_service.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
-import 'package:mentors_app/widgets/question_item.dart';
 
 final Logger logger = Logger();
 
-class QuestionScreen extends StatelessWidget {
-  const QuestionScreen({super.key});
+class QuestionScreen extends StatefulWidget {
+  final String categoryId;
+  final String categoryName;
+  final String position;
+
+  const QuestionScreen({
+    super.key,
+    required this.categoryId,
+    required this.categoryName,
+    required this.position,
+  });
+
+  @override
+  State<QuestionScreen> createState() => _QuestionScreenState();
+}
+
+class _QuestionScreenState extends State<QuestionScreen> {
+  final Logger logger = Logger();
+  final List<TextEditingController> _answerControllers = [];
+  List<Map<String, dynamic>> _questions = [];
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+
+  bool get _canSubmit =>
+      !_isLoading &&
+      !_isSubmitting &&
+      _answerControllers
+          .every((controller) => controller.text.trim().isNotEmpty);
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그인이 필요합니다.')),
+        );
+        Navigator.of(context).pop();
+      });
+      return;
+    }
+    _loadQuestions();
+  }
+
+  Future<void> _loadQuestions() async {
+    try {
+      final questionService = QuestionService();
+      final questions = await questionService.getQuestions(
+        categoryId: widget.categoryId,
+        position: widget.position,
+      );
+
+      setState(() {
+        _questions = questions;
+        _answerControllers.addAll(
+          List.generate(questions.length, (index) => TextEditingController()),
+        );
+        _isLoading = false;
+      });
+    } catch (e) {
+      logger.e('Error loading questions: $e');
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('질문을 불러오는데 실패했습니다.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _submitAnswers() async {
+    // 답변 유효성 검사
+    for (var i = 0; i < _questions.length; i++) {
+      final answer = _answerControllers[i].text.trim();
+      final maxLength = _questions[i]['maxLength'] ?? 150;
+
+      if (answer.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('모든 질문에 답변해 주세요.')),
+        );
+        return;
+      }
+
+      if (answer.length > maxLength) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${i + 1}번 답변이 너무 깁니다.')),
+        );
+        return;
+      }
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인이 필요합니다.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final answers = _answerControllers
+          .map((controller) => controller.text.trim())
+          .toList();
+
+      final questionsWithId = _questions
+          .asMap()
+          .map((index, question) => MapEntry(index, {
+                ...question,
+                'questionId': 'q${index + 1}',
+              }))
+          .values
+          .toList();
+
+      // mentorships 등록
+      final mentorshipService = MentorshipService();
+      final mentorshipId = await mentorshipService.createMentorship(
+        userId: user.uid,
+        position: widget.position,
+        categoryId: widget.categoryId,
+        categoryName: widget.categoryName,
+        questions: questionsWithId,
+        answers: answers,
+      );
+
+      if (mounted) {
+        if (mentorshipId != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.position == "mentor"
+                    ? '멘토 등록이 완료되었습니다.'
+                    : '멘티 등록이 완료되었습니다.',
+              ),
+            ),
+          );
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('등록 중 오류가 발생했습니다.')),
+          );
+        }
+      }
+    } catch (e) {
+      logger.e('답변 제출 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류 발생: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _answerControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final TextEditingController question1Controller = TextEditingController();
-    final TextEditingController question2Controller = TextEditingController();
-    final TextEditingController question3Controller = TextEditingController();
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFFE2D4FF),
         elevation: 0,
-        title: const Text(
-          'IT/전문기술 > 멘티 질문페이지',
-          style: TextStyle(
+        title: Text(
+          '${widget.categoryName} > ${widget.position == "mentor" ? "멘토" : "멘티"} 질문페이지',
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.notifications,
-              color: Colors.black,
-            ),
-            onPressed: () {
-              // 알림 기능 구현 예정
-            },
-          ),
-        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              QuestionItem(
-                questionTitle: 'Q1. 당신이 배우고 싶은 분야는 무엇입니까?',
-                hintText:
-                    '예: 웹개발(Frontend: React, Vue / Backend: Node.js, Spring), 데이터 분석(Python, R), 클라우드 인프라(AWS, Azure), 보안, 네트워크 등',
-                maxLength: 150,
-                maxLines: 3,
-                controller: question1Controller,
-              ),
-              const SizedBox(height: 24),
-              QuestionItem(
-                questionTitle: 'Q2. 해당 분야에서 무엇을 배우고 싶으십니까?',
-                hintText:
-                    '예: 프로젝트 실무 적용 방법, 프레임워크 사용법(Spring Boot, Django), 데이터 시각화, 머신러닝 모델 구현, DevOps 파이프라인 구축 등',
-                maxLength: 150,
-                maxLines: 3,
-                controller: question2Controller,
-              ),
-              const SizedBox(height: 24),
-              QuestionItem(
-                questionTitle: 'Q3. 어떤 도움을 바랍니까?',
-                hintText:
-                    '예: 실무 가이드(코딩 컨벤션, 아키텍처 설계), 최신 기술 동향(트렌드, 유망 스택), 포트폴리오 피드백, 취업 상담, 오픈소스 기여 안내 등',
-                maxLength: 150,
-                maxLines: 3,
-                controller: question3Controller,
-              ),
-              const SizedBox(height: 26),
-              Center(
-                child: const BannerAdWidget(),
-              ),
-              const SizedBox(
-                height: 20,
-              ),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MatchHistoryScreen(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ..._buildQuestionsList(),
+                    const SizedBox(height: 26),
+                    const Center(child: BannerAdWidget()),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _canSubmit ? _submitAnswers : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9575CD),
+                          padding: const EdgeInsets.symmetric(vertical: 16.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                        child: _isSubmitting
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
+                            : const Text(
+                                '매칭시작',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
-                    );
-                    // 작성된 데이터 출력 (디버깅용)
-                    logger.i('Q1: ${question1Controller.text}');
-                    logger.i('Q2: ${question2Controller.text}');
-                    logger.i('Q3: ${question3Controller.text}');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9575CD),
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
                     ),
-                  ),
-                  child: const Text(
-                    '매칭완료',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
+    );
+  }
+
+  List<Widget> _buildQuestionsList() {
+    final List<Widget> questionWidgets = [];
+    for (var i = 0; i < _questions.length; i++) {
+      final question = _questions[i];
+      questionWidgets.addAll([
+        if (i > 0) const SizedBox(height: 24),
+        Text(
+          question['questionText'],
+          style: const TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-      ),
-    );
+        const SizedBox(height: 8),
+        TextField(
+          controller: _answerControllers[i],
+          maxLength: question['maxLength'] ?? 150,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: question['hintText'],
+            hintStyle: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 12.0,
+            ),
+          ),
+        ),
+      ]);
+    }
+    return questionWidgets;
   }
 }

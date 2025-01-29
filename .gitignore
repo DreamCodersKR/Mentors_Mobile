@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 파이썬 라이브러리 자료
+match_venv/
+key_folder/
+__pycache__/

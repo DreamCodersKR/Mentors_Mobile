@@ -4,10 +4,12 @@ import 'package:mentors_app/widgets/banner_ad.dart';
 
 class MentorMenteeScreen extends StatefulWidget {
   final String categoryName;
+  final String categoryId;
 
   const MentorMenteeScreen({
     super.key,
     required this.categoryName,
+    required this.categoryId,
   });
 
   @override
@@ -58,11 +60,14 @@ class _MentorMenteeScreenState extends State<MentorMenteeScreen> {
                   style: TextStyle(fontSize: 12),
                 ),
                 onTap: () {
-                  // 멘토 선택 동작
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const QuestionScreen(),
+                      builder: (context) => QuestionScreen(
+                        categoryId: widget.categoryId,
+                        categoryName: widget.categoryName,
+                        position: 'mentor',
+                      ),
                     ),
                   );
                 },
@@ -91,7 +96,11 @@ class _MentorMenteeScreenState extends State<MentorMenteeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const QuestionScreen(),
+                      builder: (context) => QuestionScreen(
+                        categoryId: widget.categoryId,
+                        categoryName: widget.categoryName,
+                        position: 'mentee',
+                      ),
                     ),
                   );
                 },
