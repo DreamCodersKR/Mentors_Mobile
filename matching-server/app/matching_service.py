@@ -28,17 +28,27 @@ class MatchingService:
     def find_best_match(self, mentee_answers: List[str], 
                        mentors_data: List[Dict]) -> Dict:
         """최적의 멘토 찾기"""
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+
         mentee_text = self.combine_answers(mentee_answers)
         best_match = None
         highest_similarity = -1
 
-        for mentor in mentors_data:
+        logger.info(f"멘티 답변 통합: {mentee_text}")
+        logger.info(f"후보 멘토 수: {len(mentors_data)}")
+
+        for i, mentor in enumerate(mentors_data, 1):
             mentor_answers = mentor.get('answers', [])
             if not mentor_answers:
+                logger.warning(f"멘토 {i}번: 답변 데이터 없음")
                 continue
                 
             mentor_text = self.combine_answers(mentor_answers)
             similarity = self.calculate_similarity(mentee_text, mentor_text)
+
+            logger.info(f"멘토 {i}번 유사도: {similarity}")
             
             if similarity > highest_similarity:
                 highest_similarity = similarity
@@ -47,5 +57,10 @@ class MatchingService:
                     'similarity_score': similarity,
                     'mentorship_id': mentor.get('id', ''),
                 }
+
+        if best_match:
+            logger.info(f"최종 선택된 멘토 ID: {best_match['mentor_id']}")
+            logger.info(f"최종 유사도 점수: {best_match['similarity_score']}")
+
         
         return best_match if highest_similarity >= 0.7 else None

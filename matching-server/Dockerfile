@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8080
 
 # 서버 실행
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "main:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080","--workers", "2",  "--worker-class", "sync",  "main:app"]
