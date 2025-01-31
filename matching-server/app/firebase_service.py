@@ -30,15 +30,14 @@ class FirebaseService:
 
             # 쿼리 실행 및 결과 조회
             mentors_query = self.db.collection('mentorships')\
-                .where('categoryId', '==', category_id)\
+                .where('category_id', '==', category_id)\
                 .where('position', '==', 'mentor')\
-                .where('isDeleted', '==', False)
+                .where('status', '==', 'pending')\
+                .where('is_deleted', '==', False)
 
             # 결과 스트림으로 변환
             mentors = list(mentors_query.stream())
-
-            # 결과 로깅
-            self.logger.info(f"총 {len(mentors)}개의 멘토 조회 완료")
+            self.logger.info(f"총 {len(mentors)}개의 대기중인 멘토 조회 완료")
 
             # 필요한 정보만 추출하여 반환
             mentor_data = []

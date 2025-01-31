@@ -17,12 +17,15 @@ logger = logging.getLogger(__name__)
 @app.route('/match', methods=['POST'])
 def match():
     try:
+        logger.info("매칭 요청 받음")
         data = request.get_json()
+        logger.info(f"요청 데이터: {data}")
         required_fields = ['menteeId', 'categoryId', 'answers']
         
         # 필수 필드 검증
         for field in required_fields:
             if field not in data:
+                logger.error(f"필수 필드 누락: {field}")  
                 return jsonify({
                     "status": "error",
                     "message": f"Missing required field: {field}"
@@ -30,7 +33,8 @@ def match():
 
         # 멘티의 답변을 하나의 문장으로 결합
         mentee_answers = data['answers']
-        combined_mentee_answers = "\n".join(mentee_answers)
+        mentee_id = data.get('menteeId')
+        # combined_mentee_answers = "\n".join(mentee_answers)
 
         # 같은 카테고리의 멘토 목록 조회
         mentors = firebase_service.get_mentors_by_category(data['categoryId'])
@@ -42,7 +46,7 @@ def match():
             }), 404
 
         # 유사도 계산 및 최적의 멘토 찾기
-        best_match = matching_service.find_best_match(mentee_answers, mentors)
+        best_match = matching_service.find_best_match(mentee_answers, mentors, mentee_id )
 
         if best_match:
             return jsonify({

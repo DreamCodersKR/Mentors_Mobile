@@ -26,7 +26,7 @@ class MatchingService:
         return float(similarity)
     
     def find_best_match(self, mentee_answers: List[str], 
-                       mentors_data: List[Dict]) -> Dict:
+                       mentors_data: List[Dict], mentee_id: str) -> Dict:
         """최적의 멘토 찾기"""
         import logging
         logging.basicConfig(level=logging.INFO)
@@ -40,6 +40,13 @@ class MatchingService:
         logger.info(f"후보 멘토 수: {len(mentors_data)}")
 
         for i, mentor in enumerate(mentors_data, 1):
+            mentor_user_id = mentor.get('user_id')
+        
+            # 멘티와 멘토가 같은 사용자인 경우 스킵
+            if mentor_user_id == mentee_id:
+                logger.warning(f"멘토 {i}번: 멘티와 동일한 사용자이므로 스킵")
+                continue
+
             mentor_answers = mentor.get('answers', [])
             if not mentor_answers:
                 logger.warning(f"멘토 {i}번: 답변 데이터 없음")
@@ -53,10 +60,10 @@ class MatchingService:
             if similarity > highest_similarity:
                 highest_similarity = similarity
                 best_match = {
-                    'mentor_id': mentor.get('userId'),
+                    'mentor_id': mentor.get('user_id'),
                     'similarity_score': similarity,
                     'mentorship_id': mentor.get('id', ''),
-                    'category_id': mentor.get('categoryId'),
+                    'category_id': mentor.get('category_id'),
                 }
 
         if best_match:

@@ -17,16 +17,16 @@ class MentorshipService {
   }) async {
     try {
       final mentorshipData = {
-        'userId': userId,
+        'user_id': userId,
         'position': position,
-        'categoryId': categoryId,
-        'categoryName': categoryName,
+        'category_id': categoryId,
+        'category_name': categoryName,
         'questions': questions,
         'answers': answers,
         'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'isDeleted': false,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+        'is_deleted': false,
       };
 
       final docRef =
@@ -104,13 +104,18 @@ class MentorshipService {
     required Map<String, dynamic> matchResult,
   }) async {
     try {
+      _logger.i('매칭 결과 데이터: $matchResult');
+
+      final match = matchResult['match'] as Map<String, dynamic>;
+      final similarityScore = match['similarity_score'] as double;
+
       // 멘토 요청 ID 조회
       final mentorRequestSnapshot = await _firestore
           .collection('mentorships')
-          .where('userId', isEqualTo: matchResult['mentor_id'])
-          .where('categoryId', isEqualTo: matchResult['category_id'])
+          .where('user_id', isEqualTo: matchResult['mentor_id'])
+          .where('category_id', isEqualTo: categoryId)
           .where('position', isEqualTo: 'mentor')
-          .where('isDeleted', isEqualTo: false)
+          .where('is_deleted', isEqualTo: false)
           .limit(1)
           .get();
 
@@ -119,17 +124,29 @@ class MentorshipService {
       }
 
       final mentorRequestId = mentorRequestSnapshot.docs.first.id;
+      final mentorDoc = mentorRequestSnapshot.docs.first;
+      final mentorUserId = mentorDoc.data()['user_id'];
+
+      // 멘티 정보 가져오기
+      final menteeDoc =
+          await _firestore.collection('mentorships').doc(menteeRequestId).get();
+      final menteeUserId = menteeDoc.data()?['user_id'];
 
       // matches 컬렉션에 매칭 결과 저장
-      await _firestore.collection('matches').add({
-        'menteeRequestId': menteeRequestId,
-        'mentorRequestId': mentorRequestId,
-        'categoryId': matchResult['category_id'],
-        'similarityScore': matchResult['similarity_score'],
+      final matchData = {
+        'menteeRequest_id': menteeRequestId,
+        'mentorRequest_id': mentorRequestId,
+        'mentee_id': menteeUserId,
+        'mentor_id': mentorUserId,
+        'category_id': categoryId,
+        'similarity_score': similarityScore,
         'status': 'success',
-        'createdAt': FieldValue.serverTimestamp(),
-        'isDeleted': false,
-      });
+        'created_at': FieldValue.serverTimestamp(),
+        'is_deleted': false,
+      };
+      _logger.i('저장할 매칭 데이터: $matchData');
+
+      await _firestore.collection('matches').add(matchData);
 
       // 멘토십 상태 업데이트
       await Future.wait([
@@ -159,10 +176,12 @@ class MentorshipService {
     try {
       await _firestore.collection('mentorships').doc(mentorshipId).update({
         'status': status,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
       });
+      _logger.i('멘토십 상태 업데이트 완료: $mentorshipId -> $status');
     } catch (e) {
       _logger.e('Error updating mentorship status: $e');
+      rethrow; // 에러를 다시 던져서 상위에서 처리할 수 있도록 함
     }
   }
 
@@ -171,9 +190,9 @@ class MentorshipService {
     try {
       final querySnapshot = await _firestore
           .collection('mentorships')
-          .where('userId', isEqualTo: userId)
-          .where('isDeleted', isEqualTo: false)
-          .orderBy('createdAt', descending: true)
+          .where('user_id', isEqualTo: userId)
+          .where('is_deleted', isEqualTo: false)
+          .orderBy('created_at', descending: true)
           .get();
 
       return querySnapshot.docs.map((doc) {
@@ -193,15 +212,15 @@ class MentorshipService {
       // 멘티로서의 매칭 기록
       final menteeMatchesQuery = await _firestore
           .collection('matches')
-          .where('menteeRequestId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
+          .where('menteeRequest_id', isEqualTo: userId)
+          .orderBy('created_at', descending: true)
           .get();
 
       // 멘토로서의 매칭 기록
       final mentorMatchesQuery = await _firestore
           .collection('matches')
-          .where('mentorRequestId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
+          .where('mentorRequest_id', isEqualTo: userId)
+          .orderBy('created_at', descending: true)
           .get();
 
       final menteeMatches = menteeMatchesQuery.docs.map((doc) {

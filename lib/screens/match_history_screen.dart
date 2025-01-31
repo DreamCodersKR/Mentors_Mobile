@@ -52,9 +52,9 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('mentorships')
-                    .where('userId', isEqualTo: user.uid)
-                    .where('isDeleted', isEqualTo: false)
-                    .orderBy('createdAt', descending: true)
+                    .where('user_id', isEqualTo: user.uid)
+                    .where('is_deleted', isEqualTo: false)
+                    .orderBy('created_at', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
@@ -135,7 +135,7 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
               ),
               Expanded(
                 child: Text(
-                  mentorship['categoryName'] ?? '카테고리 없음',
+                  mentorship['category_name'] ?? '카테고리 없음',
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -153,7 +153,7 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('users')
-          .doc(mentorship['userId'])
+          .doc(mentorship['user_id'])
           .get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -231,7 +231,7 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${mentorship['categoryName']} 매칭 정보'),
+        title: Text('${mentorship['category_name']} 매칭 정보'),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +239,7 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
             children: [
               Text('역할: ${mentorship['position']}'),
               Text('상태: ${mentorship['status']}'),
-              Text('생성일: ${_formatTimestamp(mentorship['createdAt'])}'),
+              Text('생성일: ${_formatTimestamp(mentorship['created_at'])}'),
               const Divider(),
               const Text('답변 내용:',
                   style: TextStyle(fontWeight: FontWeight.bold)),

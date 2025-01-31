@@ -13,15 +13,21 @@ class MatchingClientService {
     required List<String> answers,
   }) async {
     try {
+      final requestBody = {
+        'menteeId': menteeId,
+        'categoryId': categoryId,
+        'answers': answers,
+      };
+      _logger.i('매칭 요청 데이터: $requestBody');
+
       final response = await http.post(
         Uri.parse('$baseUrl/match'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'menteeId': menteeId,
-          'categoryId': categoryId,
-          'answers': answers,
-        }),
+        body: jsonEncode(requestBody),
       );
+
+      _logger.i('매칭 요청 응답 상태 코드: ${response.statusCode}');
+      _logger.i('매칭 요청 응답 바디: ${response.body}');
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
