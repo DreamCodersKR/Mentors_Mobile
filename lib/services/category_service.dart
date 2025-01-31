@@ -25,4 +25,38 @@ class CategoryService {
       return null;
     }
   }
+
+  Future<List<String>> getBoardCategories() async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('categories')
+          .where('what_for', isEqualTo: 'board')
+          .get();
+
+      // 카테고리 이름들을 리스트로 추출
+      final categories = querySnapshot.docs
+          .map((doc) => (doc.data()['cate_name'] ?? '') as String)
+          .where((category) => category.isNotEmpty)
+          .toList();
+
+      // 기본 카테고리 "말머리 선택" 추가
+      categories.insert(0, "말머리 선택");
+
+      return categories;
+    } catch (e) {
+      _logger.e('게시판 카테고리 조회 실패: $e');
+      // 실패 시 기본 카테고리 반환
+      return [
+        "말머리 선택",
+        "IT/전문기술",
+        "예술",
+        "학업/교육",
+        "마케팅",
+        "자기개발",
+        "취업&커리어",
+        "금융/경제",
+        "기타"
+      ];
+    }
+  }
 }

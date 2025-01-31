@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
+import 'package:mentors_app/services/category_service.dart';
 
 class WriteBoardScreen extends StatefulWidget {
   final String? boardId;
@@ -29,17 +30,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   String _selectedCategory = "말머리 선택";
-  final List<String> _categories = [
-    "말머리 선택",
-    "IT/전문기술",
-    "예술",
-    "학업/교육",
-    "마케팅",
-    "자기개발",
-    "취업&커리어",
-    "금융/경제",
-    "기타",
-  ];
+  List<String> _categories = ["말머리 선택"];
 
   final List<XFile> _attachedFiles = [];
   final List<String> _htmlImages = []; // HTML로 저장할 이미지 태그 리스트
@@ -55,6 +46,20 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     _titleController.text = widget.initialTitle ?? '';
     _contentController.text = widget.initialContent ?? '';
     _selectedCategory = widget.initialCategory ?? "말머리 선택";
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final categoryService = CategoryService();
+    final categories = await categoryService.getBoardCategories();
+
+    setState(() {
+      _categories = categories;
+      // 초기 카테고리가 로드된 카테고리에 없으면 첫번째 카테고리로 설정
+      if (!_categories.contains(_selectedCategory)) {
+        _selectedCategory = _categories.first;
+      }
+    });
   }
 
   Future<List<String>> _uploadFiles(List<XFile> files) async {
