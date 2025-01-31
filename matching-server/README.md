@@ -49,3 +49,14 @@
    : $ curl -X POST http://localhost:8080/match \
     -H "Content-Type: application/json" \
     -d "@test_data.json"
+
+8. google cloud SDK 설치후 -> Google Container Registry 인증 설정하기 : gcloud auth configure-docker
+9. Docker 이미지에 GCR 태그 추가 : docker tag matching-server gcr.io/mentors-app-fb958/matching-server
+10. GCR에 이미지 푸시 : docker push gcr.io/mentors-app-fb958/matching-server
+11. Cloud Run 배포 :
+    gcloud run deploy matching-service \
+     --image gcr.io/mentors-app-fb958/matching-server \
+     --platform managed \
+     --region asia-northeast3 \
+     --allow-unauthenticated
+12. GCR 로그 보는법 : gcloud run services logs read matching-service --region asia-northeast3

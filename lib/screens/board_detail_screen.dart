@@ -654,7 +654,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
             //   return const Center(child: CircularProgressIndicator());
             // }
             if (snapshot.hasError || !snapshot.hasData) {
-              return const Text("내용을 불러오는 중 오류가 발생했습니다.");
+              return const Text("...");
             }
 
             final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};

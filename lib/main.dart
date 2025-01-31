@@ -10,6 +10,7 @@ import 'package:mentors_app/screens/board_screen.dart';
 import 'package:mentors_app/screens/chat_list_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/main_screen.dart';
+import 'package:mentors_app/screens/my_boards_screen.dart';
 import 'package:mentors_app/screens/my_info_screen.dart';
 import 'package:mentors_app/screens/splash_screen.dart';
 
@@ -68,6 +69,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/chat': (context) => const ChatListScreen(),
         '/myInfo': (context) => const MyInfoScreen(),
+        '/myBoards': (context) => const MyBoardsScreen(),
       },
     );
   }

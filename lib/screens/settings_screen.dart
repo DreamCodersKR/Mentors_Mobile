@@ -56,35 +56,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _deleteAccount() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        // Firestore에서 사용자 문서 삭제
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .delete();
-        // Firebase Auth 사용자 삭제
-        await user.delete();
-        logger.i('사용자 계정 삭제 완료');
-      }
+    // try {
+    //   final user = FirebaseAuth.instance.currentUser;
+    //   if (user != null) {
+    //     // Firestore에서 사용자 문서 삭제
+    //     await FirebaseFirestore.instance
+    //         .collection('users')
+    //         .doc(user.uid)
+    //         .delete();
+    //     // Firebase Auth 사용자 삭제
+    //     await user.delete();
+    //     logger.i('사용자 계정 삭제 완료');
+    //   }
 
-      if (!mounted) return;
+    //   if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("회원 탈퇴가 완료되었습니다.")),
-      );
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text("회원 탈퇴가 완료되었습니다.")),
+    //   );
 
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("회원 탈퇴에 실패했습니다: ${e.message}")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("오류 발생: $e")),
-      );
-    }
+    //   Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    // } on FirebaseAuthException catch (e) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text("회원 탈퇴에 실패했습니다: ${e.message}")),
+    //   );
+    // } catch (e) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text("오류 발생: $e")),
+    //   );
+    // }
   }
 
   void _navigateToDoNotDisturbSettings() {

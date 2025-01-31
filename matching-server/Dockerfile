@@ -11,6 +11,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 서비스 계정 키 파일 복사
+COPY key_folder /app/key_folder
+
 # 애플리케이션 코드 복사
 COPY . .
 

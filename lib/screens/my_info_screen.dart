@@ -26,6 +26,10 @@ class MyInfoScreen extends StatelessWidget {
         });
   }
 
+  void _myBoards(BuildContext context) {
+    Navigator.pushNamed(context, '/myBoards');
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -127,7 +131,7 @@ class MyInfoScreen extends StatelessWidget {
                 _buildMenuItem(
                   icon: Icons.article,
                   title: '나의 글',
-                  onTap: () => _showDevelopmentModal(context),
+                  onTap: () => _myBoards(context),
                 ),
                 _buildMenuItem(
                   icon: Icons.connect_without_contact,
