@@ -60,3 +60,14 @@
      --region asia-northeast3 \
      --allow-unauthenticated
 12. GCR 로그 보는법 : gcloud run services logs read matching-service --region asia-northeast3
+
+13. matching-server 코드 수정후 재배포 하는법 :
+
+- 이미지 빌드 : docker build -t gcr.io/mentors-app-fb958/matching-service .
+- 이미지 푸시 : docker push gcr.io/mentors-app-fb958/matching-service
+- GCR 서비스 업데이트 :
+  gcloud run deploy matching-service \
+   --image gcr.io/mentors-app-fb958/matching-service \
+   --platform managed \
+   --region asia-northeast3 \
+   --project mentors-app-fb958

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:mentors_app/screens/match_history_screen.dart';
 import 'package:mentors_app/services/mentorship_service.dart';
 import 'package:mentors_app/services/question_service.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
@@ -29,12 +30,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
   List<Map<String, dynamic>> _questions = [];
   bool _isLoading = true;
   bool _isSubmitting = false;
-
-  bool get _canSubmit =>
-      !_isLoading &&
-      !_isSubmitting &&
-      _answerControllers
-          .every((controller) => controller.text.trim().isNotEmpty);
+  bool _canSubmit = false;
 
   @override
   void initState() {
@@ -62,8 +58,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
 
       setState(() {
         _questions = questions;
+        _answerControllers.clear();
         _answerControllers.addAll(
-          List.generate(questions.length, (index) => TextEditingController()),
+          List.generate(questions.length, (index) {
+            final controller = TextEditingController();
+            controller.addListener(_updateCanSubmit);
+            return controller;
+          }),
         );
         _isLoading = false;
       });
@@ -76,6 +77,36 @@ class _QuestionScreenState extends State<QuestionScreen> {
         );
       }
     }
+  }
+
+  void _updateCanSubmit() {
+    setState(() {
+      _canSubmit = _answerControllers.every((controller) {
+            final answerLength = controller.text.trim().length;
+            return answerLength >= 20 && answerLength <= 150;
+          }) &&
+          _answerControllers.length == _questions.length;
+    });
+  }
+
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('${widget.categoryName} 매칭 중...'),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _submitAnswers() async {
@@ -110,6 +141,8 @@ class _QuestionScreenState extends State<QuestionScreen> {
     setState(() {
       _isSubmitting = true;
     });
+
+    _showLoadingDialog();
 
     try {
       final answers = _answerControllers
@@ -147,7 +180,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
               ),
             ),
           );
-          Navigator.pop(context);
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MatchHistoryScreen(),
+            ),
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('등록 중 오류가 발생했습니다.')),
@@ -209,7 +248,9 @@ class _QuestionScreenState extends State<QuestionScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _canSubmit ? _submitAnswers : null,
+                        onPressed: _canSubmit && !_isSubmitting
+                            ? _submitAnswers
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF9575CD),
                           padding: const EdgeInsets.symmetric(vertical: 16.0),

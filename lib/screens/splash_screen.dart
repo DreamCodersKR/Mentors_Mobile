@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:logger/logger.dart';
 import 'package:mentors_app/screens/main_screen.dart';
 
@@ -52,18 +53,30 @@ class _SplashScreenState extends State<SplashScreen>
         _isLogoAnimationCompleted = true;
       });
     });
+    _initializeAdsAndNavigate();
+  }
 
-    _checkAndUpdateFCMToken();
+  Future<void> _initializeAdsAndNavigate() async {
+    try {
+      // Google Mobile Ads 초기화
+      await MobileAds.instance.initialize();
+      logger.i("Google Mobile Ads 초기화 완료");
 
-    // 스플래쉬 화면 종료
-    Future.delayed(const Duration(seconds: 6), () {
-      if (mounted) {
+      // FCM 토큰 업데이트
+      await _checkAndUpdateFCMToken();
+    } catch (e) {
+      logger.e("초기화 실패: $e");
+    }
+
+    // 스플래시 화면 종료 및 메인 화면으로 이동
+    if (mounted) {
+      Future.delayed(const Duration(seconds: 3), () {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainScreen()),
         );
-      }
-    });
+      });
+    }
   }
 
   Future<void> _checkAndUpdateFCMToken() async {

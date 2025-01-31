@@ -56,11 +56,12 @@ class MatchingService:
                     'mentor_id': mentor.get('userId'),
                     'similarity_score': similarity,
                     'mentorship_id': mentor.get('id', ''),
+                    'category_id': mentor.get('categoryId'),
                 }
 
         if best_match:
             logger.info(f"최종 선택된 멘토 ID: {best_match['mentor_id']}")
             logger.info(f"최종 유사도 점수: {best_match['similarity_score']}")
-
+            logger.info(f"최종 매칭 객체 확인: {best_match}")
         
-        return best_match if highest_similarity >= 0.7 else None
+        return best_match if highest_similarity >= 0.6 else None

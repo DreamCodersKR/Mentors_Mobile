@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mentors_app/screens/edit_profile_screen.dart';
+import 'package:mentors_app/screens/match_history_screen.dart';
 import 'package:mentors_app/screens/settings_screen.dart';
 import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/bottom_nav_bar.dart';
@@ -24,6 +25,15 @@ class MyInfoScreen extends StatelessWidget {
             ],
           );
         });
+  }
+
+  void _navigateToMatchHistory(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MatchHistoryScreen(),
+      ),
+    );
   }
 
   void _myBoards(BuildContext context) {
@@ -136,7 +146,7 @@ class MyInfoScreen extends StatelessWidget {
                 _buildMenuItem(
                   icon: Icons.connect_without_contact,
                   title: '매칭기록',
-                  onTap: () => _showDevelopmentModal(context),
+                  onTap: () => _navigateToMatchHistory(context),
                 ),
                 const Divider(thickness: 1),
                 const SizedBox(height: 10),

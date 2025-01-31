@@ -17,16 +17,16 @@ import 'package:mentors_app/screens/splash_screen.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final Logger logger = Logger();
 
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  logger.i("백그라운드 메시지 수신: ${message.messageId}");
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  MobileAds.instance.initialize();
+  MobileAds.instance.initialize().then((status) {
+    logger.i("Google Mobile Ads 초기화 상태: ${status.adapterStatuses}");
+  }).catchError((e) {
+    logger.e("Google Mobile Ads 초기화 실패: $e");
+  });
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   NotificationSettings settings =
       await FirebaseMessaging.instance.requestPermission(
@@ -41,6 +41,10 @@ void main() async {
   FirebaseMessagingHandler.initialize();
 
   runApp(const MyApp());
+}
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  logger.i("백그라운드 메시지 수신: ${message.messageId}");
 }
 
 class MyApp extends StatelessWidget {
