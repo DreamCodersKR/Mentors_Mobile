@@ -55,6 +55,7 @@ class MatchingService:
             mentor_text = self.combine_answers(mentor_answers)
             similarity = self.calculate_similarity(mentee_text, mentor_text)
 
+            logger.info(f"멘토 {i}번 ID: {mentor_user_id}")
             logger.info(f"멘토 {i}번 유사도: {similarity}")
             
             if similarity > highest_similarity:
