@@ -70,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     // 스플래시 화면 종료 및 메인 화면으로 이동
     if (mounted) {
-      Future.delayed(const Duration(seconds: 3), () {
+      Future.delayed(const Duration(seconds: 6), () {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainScreen()),

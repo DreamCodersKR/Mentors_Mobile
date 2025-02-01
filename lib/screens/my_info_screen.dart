@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mentors_app/screens/contact_support_screen.dart';
 import 'package:mentors_app/screens/edit_profile_screen.dart';
 import 'package:mentors_app/screens/match_history_screen.dart';
 import 'package:mentors_app/screens/settings_screen.dart';
@@ -154,7 +155,14 @@ class MyInfoScreen extends StatelessWidget {
                 _buildMenuItem(
                   icon: Icons.chat_bubble_outline,
                   title: '1:1 문의',
-                  onTap: () => _showDevelopmentModal(context),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ContactSupportScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.rate_review_outlined,
