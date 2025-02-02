@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:logger/logger.dart';
 
 class MatchProfileSection extends StatelessWidget {
   final Map<String, dynamic> mentorship;
@@ -10,7 +13,10 @@ class MatchProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Logger logger = Logger();
+
     final status = mentorship['status'];
+    logger.i('mentorship의 status: $status');
 
     if (status == 'matched') {
       return MatchedProfile(mentorship: mentorship);
@@ -32,7 +38,8 @@ class MatchedProfile extends StatelessWidget {
   Widget build(BuildContext context) {
     final nickname = mentorship['user_nickname'] ?? '알 수 없음';
     final profileUrl = mentorship['profile_photo'];
-    final role = mentorship['original_position'] == 'mentor' ? '멘티' : '멘토';
+
+    final role = mentorship['position'] == 'mentor' ? '멘토' : '멘티';
 
     return ProfileRow(
       nickname: nickname,
@@ -52,14 +59,27 @@ class UnmatchedProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nickname = mentorship['user_nickname'] ?? '알 수 없음';
-    final profileUrl = mentorship['profile_photo'];
-    final role = mentorship['position'] == 'mentor' ? '멘토' : '멘티';
+    final user = FirebaseAuth.instance.currentUser;
 
-    return ProfileRow(
-      nickname: nickname,
-      profileUrl: profileUrl,
-      role: role,
+    return FutureBuilder<DocumentSnapshot>(
+      future:
+          FirebaseFirestore.instance.collection('users').doc(user!.uid).get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final userData = snapshot.data?.data() as Map<String, dynamic>?;
+        final nickname = userData?['user_nickname'] ?? '알 수 없음';
+        final profileUrl = userData?['profile_photo'];
+        final role = mentorship['position'] == 'mentor' ? '멘토' : '멘티';
+
+        return ProfileRow(
+          nickname: nickname,
+          profileUrl: profileUrl,
+          role: role,
+        );
+      },
     );
   }
 }

@@ -29,10 +29,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final userDocRef =
               FirebaseFirestore.instance.collection('users').doc(user.uid);
 
-          await userDocRef.update({
-            'fcm_tokens': FieldValue.arrayRemove([fcmToken]),
-          });
-          logger.i('FCM 토큰 제거: $fcmToken');
+          try {
+            // 토큰 삭제를 try-catch로 감싸 오류 발생해도 로그아웃 진행
+            await userDocRef.update({
+              'fcm_tokens': FieldValue.arrayRemove([fcmToken]),
+            });
+            logger.i('FCM 토큰 제거: $fcmToken');
+          } catch (e) {
+            logger.e('FCM 토큰 제거 중 오류: $e');
+          }
         }
 
         // Firebase Auth 로그아웃
@@ -46,9 +51,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text("로그아웃 되었습니다.")),
       );
 
+      // 메인 스크린으로 네비게이션
       Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
     } catch (e) {
       logger.e('로그아웃 중 오류 발생: $e');
+
+      if (!mounted) return;
+
+      // 오류 발생 시 메인 스크린으로 강제 네비게이션
+      Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("로그아웃 중 오류 발생: $e")),
       );

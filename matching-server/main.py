@@ -30,11 +30,26 @@ def match():
                     "status": "error",
                     "message": f"Missing required field: {field}"
                 }), 400
+        
+        # mentorship 문서에서 실제 mentee의 user_id 조회
+        mentee_doc = firebase_service.get_mentorship_by_id(data['menteeId'])
+        if not mentee_doc:
+            logger.error("멘티 mentorship 문서를 찾을 수 없음")
+            return jsonify({
+                "status": "error",
+                "message": "Mentee mentorship not found"
+            }), 404
 
-        # 멘티의 답변을 하나의 문장으로 결합
+        # 멘티의 실제 user_id 추출
+        mentee_user_id = mentee_doc.get('user_id')
+        if not mentee_user_id:
+            logger.error("멘티 user_id를 찾을 수 없음")
+            return jsonify({
+                "status": "error",
+                "message": "Mentee user_id not found"
+            }), 404
+
         mentee_answers = data['answers']
-        mentee_id = data.get('menteeId')
-        # combined_mentee_answers = "\n".join(mentee_answers)
 
         # 같은 카테고리의 멘토 목록 조회
         mentors = firebase_service.get_mentors_by_category(data['categoryId'])
@@ -46,9 +61,13 @@ def match():
             }), 404
 
         # 유사도 계산 및 최적의 멘토 찾기
-        best_match = matching_service.find_best_match(mentee_answers, mentors, mentee_id )
+        best_match = matching_service.find_best_match(mentee_answers, mentors, mentee_user_id )
 
         if best_match:
+            # 멘티와 멘토 모두의 mentorship status를 'matched'로 업데이트
+            firebase_service.update_mentorship_status(data['menteeId'], 'matched')
+            firebase_service.update_mentorship_status(best_match['mentorship_id'], 'matched')
+
             return jsonify({
                 "status": "success",
                 "match": best_match
@@ -60,6 +79,7 @@ def match():
             }), 404
 
     except Exception as e:
+        logger.error(f"매칭 처리 중 오류 발생: {e}")
         return jsonify({
             "status": "error",
             "message": str(e)

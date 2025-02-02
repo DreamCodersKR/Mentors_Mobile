@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:mentors_app/main.dart';
+import 'package:mentors_app/widgets/banner_ad.dart';
 import 'package:mentors_app/widgets/match_history/match_history_card.dart';
 
 class MatchHistoryScreen extends StatefulWidget {
@@ -47,23 +48,47 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen>
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home, color: Colors.black),
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context, '/main', (route) => false),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.black,
+          indicator: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.deepPurple[200],
+          ),
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicatorPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           tabs: const [
             Tab(text: '대기'),
             Tab(text: '완료'),
           ],
-          labelColor: Colors.black,
-          indicatorColor: Colors.deepPurple,
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          // 대기 탭
-          _buildPendingList(user.uid),
-          // 완료 탭
-          _buildCompletedList(user.uid),
+          const SizedBox(height: 12),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // 대기 탭
+                _buildPendingList(user.uid),
+                // 완료 탭
+                _buildCompletedList(user.uid),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const BannerAdWidget(),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -97,7 +122,28 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen>
           itemBuilder: (context, index) {
             final mentorship =
                 mentorships[index].data() as Map<String, dynamic>;
-            return MatchHistoryCard(mentorship: mentorship);
+
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(userId)
+                  .get(),
+              builder: (context, userSnapshot) {
+                if (!userSnapshot.hasData) {
+                  return const CircularProgressIndicator();
+                }
+
+                final userData =
+                    userSnapshot.data?.data() as Map<String, dynamic>?;
+                final modifiedMentorship = {
+                  ...mentorship,
+                  'user_nickname': userData?['user_nickname'] ?? '알 수 없음',
+                  'profile_photo': userData?['profile_photo'] ?? '',
+                };
+
+                return MatchHistoryCard(mentorship: modifiedMentorship);
+              },
+            );
           },
         );
       },
@@ -122,6 +168,7 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen>
         }
 
         final mentorships = snapshot.data?.docs ?? [];
+        logger.i('스냅샷 체크 : ${mentorships.length}');
         if (mentorships.isEmpty) {
           return const Center(child: Text('완료된 매칭 기록이 없습니다.'));
         }
@@ -129,9 +176,15 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen>
         return FutureBuilder<List<Map<String, dynamic>>>(
           future: _getMatchedMentorships(mentorships),
           builder: (context, matchedSnapshot) {
-            logger.i('매칭된 멘토쉽 정보: ${matchedSnapshot.data}');
             if (matchedSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
+            }
+
+            // 데이터가 로드된 후에만 로그 출력
+            if (matchedSnapshot.hasData) {
+              logger.i('매치된 스냅샷 정보: ${matchedSnapshot.data}');
+            } else {
+              logger.i('매치된 스냅샷 정보: null');
             }
 
             if (!matchedSnapshot.hasData || matchedSnapshot.data!.isEmpty) {
@@ -158,11 +211,14 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen>
 
     for (var mentorship in mentorships) {
       final mentorshipData = mentorship.data() as Map<String, dynamic>;
-      final position = mentorshipData['position'] as String?;
+      logger.i('_getMatchedMentorships 로 넘어온 멘토쉽 정보 : $mentorshipData');
+      final userPosition = mentorshipData['position'] as String?;
+      logger.i('_getMatchedMentorships 로 넘어온 유저 position 정보 : $userPosition');
+      logger.i('_getMatchedMentorships 로 넘어온 멘토쉽 id 정보 : ${mentorship.id}');
 
       try {
         QuerySnapshot matchQuery;
-        if (position == 'mentor') {
+        if (userPosition == 'mentor') {
           matchQuery = await FirebaseFirestore.instance
               .collection('matches')
               .where('mentorRequest_id', isEqualTo: mentorship.id)
@@ -181,11 +237,14 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen>
         if (matchQuery.docs.isNotEmpty) {
           final matchData =
               matchQuery.docs.first.data() as Map<String, dynamic>;
-          final oppositeRequestId = position == 'mentor'
+
+          logger.i('matches 쿼리 결과 : $matchData');
+
+          final oppositeRequestId = userPosition == 'mentor'
               ? matchData['menteeRequest_id'] as String
               : matchData['mentorRequest_id'] as String;
 
-          final oppositeUserId = position == 'mentor'
+          final oppositeUserId = userPosition == 'mentor'
               ? matchData['mentee_id'] as String
               : matchData['mentor_id'] as String;
 
@@ -203,16 +262,23 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen>
 
           if (oppositeMentorship.exists && oppositeUser.exists) {
             final userData = oppositeUser.data()!;
+            final oppositeMentorshipData = oppositeMentorship.data()!;
+
+            logger.i('상대 유저 정보 : $userData');
+            logger.i('상대 멘토쉽 정보 : ${oppositeMentorshipData['answers']}');
+
             matchedList.add({
-              ...oppositeMentorship.data()!,
+              ...oppositeMentorshipData,
               'user_nickname': userData['user_nickname'] ?? '알 수 없음',
               'profile_photo': userData['profile_photo'] ?? '',
-              'original_position': position,
-              'opposite_user_id': oppositeUserId,
+              'id': oppositeMentorship.id,
             });
           }
         }
-        logger.i('상대방 매칭 정보 조회 : $matchedList');
+        _logger.i('매칭된 멘토쉽 정보 : ${matchedList[0]['answers']}');
+        _logger.i('상대방 매칭 닉네임 : ${matchedList[0]['user_nickname']}');
+        _logger.i('상대방 매칭 사진주소 : ${matchedList[0]['profile_photo']}');
+        _logger.i('상대방 멘토쉽 상태 : ${matchedList[0]['status']}');
       } catch (e) {
         _logger.e('매칭 정보 조회 중 오류: $e');
       }

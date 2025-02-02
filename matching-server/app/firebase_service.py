@@ -22,6 +22,20 @@ class FirebaseService:
             self.logger.error(f"Firebase 초기화 실패: {e}")
             raise
 
+    def get_mentorship_by_id(self, mentorship_id: str):
+        """mentorship 문서 조회"""
+        try:
+            self.logger.info(f"mentorship ID {mentorship_id}로 문서 조회")
+            doc_ref = self.db.collection('mentorships').document(mentorship_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                return doc.to_dict()
+            self.logger.warning(f"mentorship ID {mentorship_id}에 해당하는 문서 없음")
+            return None
+        except Exception as e:
+            self.logger.error(f"mentorship 조회 중 오류 발생: {e}")
+            return None        
+
     def get_mentors_by_category(self, category_id: str):
         """카테고리별 멘토 목록 조회"""
         try:
@@ -43,6 +57,7 @@ class FirebaseService:
             mentor_data = []
             for mentor in mentors:
                 mentor_dict = mentor.to_dict()
+                self.logger.info(f"멘토 정보: {mentor_dict}")
                 mentor_dict['id'] = mentor.id  # 문서 ID 포함
                 mentor_data.append(mentor_dict)
 
@@ -52,3 +67,14 @@ class FirebaseService:
             # 상세한 에러 로깅
             self.logger.error(f"멘토 조회 중 오류 발생: {e}", exc_info=True)
             return []
+    
+    def update_mentorship_status(self, mentorship_id: str, status: str):
+        """mentorship 상태 업데이트"""
+        try:
+            mentorship_ref = self.db.collection('mentorships').document(mentorship_id)
+            mentorship_ref.update({'status': status, 'updated_at' : firestore.SERVER_TIMESTAMP
+            })
+            self.logger.info(f"멘토십 ID {mentorship_id} 상태 업데이트 완료: {status}")
+        except Exception as e:
+            self.logger.error(f"멘토십 ID {mentorship_id} 상태 업데이트 실패: {e}")
+    

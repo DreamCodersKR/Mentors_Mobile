@@ -24,6 +24,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   int _unreadNotificationCount = 0;
+  bool _canAccessPrivateFeatures = false;
 
   @override
   void initState() {
@@ -34,29 +35,58 @@ class _MainScreenState extends State<MainScreen> {
 
   void _listenForUnreadNotifications() {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    if (userId == null) {
+      setState(() {
+        _unreadNotificationCount = 0;
+      });
+      return;
+    }
 
-    FirebaseFirestore.instance
-        .collection('notifications')
-        .where('user_id', isEqualTo: userId)
-        .where('is_read', isEqualTo: false)
-        .where('is_deleted', isEqualTo: false)
-        .snapshots()
-        .listen((snapshot) {
+    try {
+      FirebaseFirestore.instance
+          .collection('notifications')
+          .where('user_id', isEqualTo: userId)
+          .where('is_read', isEqualTo: false)
+          .where('is_deleted', isEqualTo: false)
+          .snapshots()
+          .listen((snapshot) {
+        if (mounted) {
+          setState(() {
+            _unreadNotificationCount = snapshot.docs.length;
+          });
+        }
+      }, onError: (error) {
+        // 오류 발생 시 알림 카운트 초기화
+        logger.e('알림 리스너 오류: $error');
+        if (mounted) {
+          setState(() {
+            _unreadNotificationCount = 0;
+          });
+        }
+      });
+    } catch (e) {
+      logger.e('알림 리스너 설정 중 오류: $e');
       if (mounted) {
         setState(() {
-          _unreadNotificationCount = snapshot.docs.length;
+          _unreadNotificationCount = 0;
         });
       }
-    });
+    }
   }
 
   void _checkAuthState() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      print('사용자가 로그인 되어 있지 않습니다');
+      // 사용자가 로그인되어 있지 않아도 기본 기능은 유지
+      setState(() {
+        // 로그인 상태에 따라 일부 기능 제한
+        _canAccessPrivateFeatures = false;
+      });
     } else {
-      print('사용자가 로그인 되어 있습니다 : ${user.email}');
+      setState(() {
+        _canAccessPrivateFeatures = true;
+      });
+      _listenForUnreadNotifications();
     }
   }
 
@@ -88,7 +118,7 @@ class _MainScreenState extends State<MainScreen> {
         'views': FieldValue.increment(1),
       });
     } catch (e) {
-      print('조회수 증가 실패: $e');
+      logger.i('조회수 증가 실패: $e');
     }
   }
 
@@ -123,7 +153,7 @@ class _MainScreenState extends State<MainScreen> {
 
         author = userDoc.data()?['user_nickname'] ?? '익명';
       } catch (e) {
-        print('작성자 닉네임 가져오기 실패 : $e');
+        logger.i('작성자 닉네임 가져오기 실패 : $e');
       }
 
       navigator.push(
@@ -177,27 +207,25 @@ class _MainScreenState extends State<MainScreen> {
           _currentIndex = 0;
         });
       });
-    } else if (index == 2) {
+    } else if (index == 2 || index == 3) {
       if (user == null) {
         Navigator.pushNamed(context, '/login');
       } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ChatListScreen(),
-          ),
-        );
-      }
-    } else if (index == 3) {
-      if (user == null) {
-        Navigator.pushNamed(context, '/login');
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const MyInfoScreen(),
-          ),
-        );
+        if (index == 2) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ChatListScreen(),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MyInfoScreen(),
+            ),
+          );
+        }
       }
     } else {
       setState(() {
@@ -221,35 +249,36 @@ class _MainScreenState extends State<MainScreen> {
           elevation: 0,
           automaticallyImplyLeading: false, // 메인 화면에서 뒤로가기 버튼 제거
           actions: [
-            IconButton(
-              onPressed: () => _navigateToNotificationScreen(context),
-              icon: Stack(
-                children: [
-                  const Icon(Icons.notifications, color: Colors.black),
-                  if (_unreadNotificationCount > 0)
-                    Positioned(
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          _unreadNotificationCount > 9
-                              ? '9+'
-                              : '$_unreadNotificationCount',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+            if (_canAccessPrivateFeatures)
+              IconButton(
+                onPressed: () => _navigateToNotificationScreen(context),
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.notifications, color: Colors.black),
+                    if (_unreadNotificationCount > 0)
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            _unreadNotificationCount > 9
+                                ? '9+'
+                                : '$_unreadNotificationCount',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
           ],
         ),
         body: SingleChildScrollView(

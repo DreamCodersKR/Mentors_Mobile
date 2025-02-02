@@ -4,10 +4,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:logger/logger.dart';
 import 'package:mentors_app/firebase_options.dart';
 import 'package:mentors_app/screens/board_screen.dart';
 import 'package:mentors_app/screens/chat_list_screen.dart';
+import 'package:mentors_app/screens/chat_room_screen.dart';
 import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/main_screen.dart';
 import 'package:mentors_app/screens/my_boards_screen.dart';
@@ -19,6 +21,7 @@ final Logger logger = Logger();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko_KR', null);
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -74,6 +77,18 @@ class MyApp extends StatelessWidget {
         '/chat': (context) => const ChatListScreen(),
         '/myInfo': (context) => const MyInfoScreen(),
         '/myBoards': (context) => const MyBoardsScreen(),
+        '/chat_room': (context) {
+          final arguments = ModalRoute.of(context)?.settings.arguments;
+
+          if (arguments is Map<String, dynamic>) {
+            return ChatRoomScreen(
+              chatRoomId: arguments['chatRoomId'] as String,
+              userName: arguments['userName'] as String,
+            );
+          }
+
+          return const ChatListScreen();
+        },
       },
     );
   }

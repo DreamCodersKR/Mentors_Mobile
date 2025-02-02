@@ -7,63 +7,50 @@ class ChatService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Logger _logger = Logger();
 
-  // 현재 로그인된 사용자 ID 반환
-  String? getCurrentUserId() {
-    return _auth.currentUser?.uid;
-  }
-
-  // 새 채팅방 생성
+  // 채팅방 생성
   Future<String?> createChatRoom({
     required String matchesId,
-    required String otherUserId,
+    required String mentorId,
+    required String menteeId,
   }) async {
-    final currentUserId = getCurrentUserId();
-
-    if (currentUserId == null) {
-      _logger.e('사용자가 로그인되어 있지 않습니다.');
-      return null;
-    }
-
     try {
-      // 채팅방 문서 생성
-      final chatRef = await _firestore.collection('chats').add({
-        'participants': [currentUserId, otherUserId],
-        'matches_id': matchesId,
-        'last_message': '',
-        'last_message_time': FieldValue.serverTimestamp(),
-        'created_at': FieldValue.serverTimestamp(),
-      });
-
-      return chatRef.id;
-    } catch (e) {
-      _logger.e('채팅방 생성 중 오류 발생: $e');
-      return null;
-    }
-  }
-
-  // 특정 매칭 ID로 채팅방 찾기
-  Future<String?> findChatRoomByMatchesId(String matchesId) async {
-    final currentUserId = getCurrentUserId();
-
-    if (currentUserId == null) {
-      _logger.e('사용자가 로그인되어 있지 않습니다.');
-      return null;
-    }
-
-    try {
-      final querySnapshot = await _firestore
+      // 이미 존재하는 채팅방 확인
+      final existingChat = await _firestore
           .collection('chats')
           .where('matches_id', isEqualTo: matchesId)
-          .where('participants', arrayContains: currentUserId)
-          .limit(1)
+          .where('is_deleted', isEqualTo: false)
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        return querySnapshot.docs.first.id;
+      if (existingChat.docs.isNotEmpty) {
+        _logger.i('이미 존재하는 채팅방: ${existingChat.docs.first.id}');
+        return existingChat.docs.first.id;
       }
-      return null;
+
+      // 새로운 채팅방 생성
+      final chatRef = await _firestore.collection('chats').add({
+        'participants': [mentorId, menteeId],
+        'matches_id': matchesId,
+        'mentor_id': mentorId,
+        'mentee_id': menteeId,
+        'last_message': '채팅이 시작되었습니다.',
+        'last_message_time': FieldValue.serverTimestamp(),
+        'created_at': FieldValue.serverTimestamp(),
+        'is_deleted': false,
+      });
+
+      // 첫 메시지 자동 생성
+      await chatRef.collection('messages').add({
+        'sender_id': mentorId, // 시스템 메시지로 처리
+        'content': '채팅이 시작되었습니다.',
+        'timestamp': FieldValue.serverTimestamp(),
+        'is_read': false,
+        'is_deleted': false,
+      });
+
+      _logger.i('새로운 채팅방 생성: ${chatRef.id}');
+      return chatRef.id;
     } catch (e) {
-      _logger.e('채팅방 찾기 중 오류 발생: $e');
+      _logger.e('채팅방 생성 중 오류: $e');
       return null;
     }
   }
@@ -73,63 +60,40 @@ class ChatService {
     required String chatId,
     required String content,
   }) async {
-    final currentUserId = getCurrentUserId();
-
-    if (currentUserId == null) {
-      _logger.e('사용자가 로그인되어 있지 않습니다.');
-      return;
-    }
-
     try {
-      // 메시지 하위 컬렉션에 메시지 추가
+      final user = _auth.currentUser;
+      if (user == null) {
+        _logger.w('로그인된 사용자가 없습니다.');
+        return;
+      }
+
+      // messages 서브컬렉션에 메시지 추가
       await _firestore
           .collection('chats')
           .doc(chatId)
           .collection('messages')
           .add({
-        'sender_id': currentUserId,
+        'sender_id': user.uid,
         'content': content,
         'timestamp': FieldValue.serverTimestamp(),
         'is_read': false,
+        'is_deleted': false,
       });
 
-      // 채팅방의 마지막 메시지 업데이트
+      // 채팅방의 마지막 메시지 정보 업데이트
       await _firestore.collection('chats').doc(chatId).update({
         'last_message': content,
         'last_message_time': FieldValue.serverTimestamp(),
       });
+
+      _logger.i('메시지 전송 완료');
     } catch (e) {
-      _logger.e('메시지 전송 중 오류 발생: $e');
+      _logger.e('메시지 전송 중 오류: $e');
+      rethrow;
     }
   }
 
-  // 특정 채팅방의 메시지 스트림 가져오기
-  Stream<QuerySnapshot> getMessagesStream(String chatId) {
-    return _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .orderBy('timestamp', descending: false)
-        .snapshots();
-  }
-
-  // 사용자의 채팅 목록 가져오기
-  Stream<QuerySnapshot> getUserChatsStream() {
-    final currentUserId = getCurrentUserId();
-
-    if (currentUserId == null) {
-      _logger.e('사용자가 로그인되어 있지 않습니다.');
-      return const Stream.empty();
-    }
-
-    return _firestore
-        .collection('chats')
-        .where('participants', arrayContains: currentUserId)
-        .orderBy('last_message_time', descending: true)
-        .snapshots();
-  }
-
-  // 메시지 읽음 상태 업데이트
+  // 메시지 읽음 처리
   Future<void> markMessageAsRead(String chatId, String messageId) async {
     try {
       await _firestore
@@ -139,33 +103,57 @@ class ChatService {
           .doc(messageId)
           .update({'is_read': true});
     } catch (e) {
-      _logger.e('메시지 읽음 상태 업데이트 중 오류 발생: $e');
+      _logger.e('메시지 읽음 처리 중 오류: $e');
     }
   }
 
-  // 특정 멘토십 ID로 채팅방 찾기
-  Future<String?> findChatRoomByMentorshipId(String mentorshipId) async {
-    final currentUserId = getCurrentUserId();
-
-    if (currentUserId == null) {
-      _logger.e('사용자가 로그인되어 있지 않습니다.');
-      return null;
+  // 사용자의 채팅방 목록 조회
+  Stream<QuerySnapshot> getUserChatRooms() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      _logger.w('로그인된 사용자가 없습니다.');
+      return const Stream.empty();
     }
 
-    try {
-      final querySnapshot = await _firestore
-          .collection('chats')
-          .where('mentorship_id', isEqualTo: mentorshipId)
-          .where('participants', arrayContains: currentUserId)
-          .limit(1)
-          .get();
+    return _firestore
+        .collection('chats')
+        .where('participants', arrayContains: user.uid)
+        .where('is_deleted', isEqualTo: false)
+        .orderBy('last_message_time', descending: true)
+        .snapshots();
+  }
 
-      if (querySnapshot.docs.isNotEmpty) {
-        return querySnapshot.docs.first.id;
-      }
-      return null;
+  // 특정 채팅방의 메시지 스트림
+  Stream<QuerySnapshot> getChatMessages(String chatId) {
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .where('is_deleted', isEqualTo: false)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
+
+  // 채팅방 삭제 (실제 삭제가 아닌 is_deleted 플래그 설정)
+  Future<void> deleteChatRoom(String chatId) async {
+    try {
+      await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .update({'is_deleted': true});
+      _logger.i('채팅방 삭제 완료');
     } catch (e) {
-      _logger.e('채팅방 찾기 중 오류 발생: $e');
+      _logger.e('채팅방 삭제 중 오류: $e');
+      rethrow;
+    }
+  }
+
+  // 채팅방 정보 조회
+  Future<DocumentSnapshot?> getChatRoom(String chatId) async {
+    try {
+      return await _firestore.collection('chats').doc(chatId).get();
+    } catch (e) {
+      _logger.e('채팅방 정보 조회 중 오류: $e');
       return null;
     }
   }
