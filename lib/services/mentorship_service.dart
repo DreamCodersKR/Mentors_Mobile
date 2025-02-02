@@ -243,4 +243,82 @@ class MentorshipService {
       return [];
     }
   }
+
+  Future<Map<String, dynamic>?> getMatchDetails(
+      String mentorshipId, String userId) async {
+    try {
+      _logger.i('매칭 정보 조회 시작 - mentorshipId: $mentorshipId, userId: $userId');
+
+      // 1. mentorship 문서 조회
+      final mentorshipDoc =
+          await _firestore.collection('mentorships').doc(mentorshipId).get();
+      if (!mentorshipDoc.exists) {
+        _logger.w('mentorship 문서가 존재하지 않음');
+        return null;
+      }
+
+      final mentorshipData = mentorshipDoc.data()!;
+      final position = mentorshipData['position'] as String?;
+      _logger.i('현재 사용자 포지션: $position');
+
+      // 2. matches 컬렉션에서 매칭 정보 검색
+      QuerySnapshot matchQuery;
+      if (position == 'mentor') {
+        matchQuery = await _firestore
+            .collection('matches')
+            .where('mentorRequest_id', isEqualTo: mentorshipId)
+            .where('mentor_id', isEqualTo: userId)
+            .where('status', isEqualTo: 'success')
+            .where('is_deleted', isEqualTo: false)
+            .get();
+      } else {
+        matchQuery = await _firestore
+            .collection('matches')
+            .where('menteeRequest_id', isEqualTo: mentorshipId)
+            .where('mentee_id', isEqualTo: userId)
+            .where('status', isEqualTo: 'success')
+            .where('is_deleted', isEqualTo: false)
+            .get();
+      }
+
+      if (matchQuery.docs.isEmpty) {
+        _logger.i('매칭 정보 없음, 기본 mentorship 데이터 반환');
+        return mentorshipData;
+      }
+
+      // 3. 매칭된 상대방의 mentorship 정보 조회
+      final matchData = matchQuery.docs.first.data() as Map<String, dynamic>;
+      final oppositeRequestId = position == 'mentor'
+          ? matchData['menteeRequest_id'] as String
+          : matchData['mentorRequest_id'] as String;
+
+      final oppositeMentorshipDoc = await _firestore
+          .collection('mentorships')
+          .doc(oppositeRequestId)
+          .get();
+
+      if (!oppositeMentorshipDoc.exists) {
+        _logger.w('상대방 mentorship 문서가 존재하지 않음');
+        return mentorshipData;
+      }
+
+      final oppositeMentorshipData = oppositeMentorshipDoc.data()!;
+
+      // 4. 최종 데이터 구성
+      final Map<String, dynamic> combinedData = {
+        ...mentorshipData,
+        'match_data': <String, dynamic>{
+          ...matchData,
+          'opposite_mentorship': oppositeMentorshipData
+        }
+      };
+
+      _logger.i('매칭 정보 반환: $combinedData');
+      return combinedData;
+    } catch (e, stackTrace) {
+      _logger.e('매칭 정보 조회 중 오류 발생: $e');
+      _logger.e('스택 트레이스: $stackTrace');
+      return null;
+    }
+  }
 }
