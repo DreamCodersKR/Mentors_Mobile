@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:logger/logger.dart';
 import 'package:mentors_app/screens/main_screen.dart';
+import 'package:mentors_app/services/version_check_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -53,29 +56,76 @@ class _SplashScreenState extends State<SplashScreen>
         _isLogoAnimationCompleted = true;
       });
     });
-    _initializeAdsAndNavigate();
+    _checkConnectivityAndInitialize();
+  }
+
+  Future<void> _checkConnectivityAndInitialize() async {
+    try {
+      final connectivityResult = await Connectivity().checkConnectivity();
+
+      if (connectivityResult == ConnectivityResult.none) {
+        if (mounted) {
+          _showNoConnectionDialog();
+        }
+        return;
+      }
+
+      await _initializeAdsAndNavigate();
+    } catch (e) {
+      logger.e("연결 상태 확인 실패: $e");
+      if (mounted) {
+        _showNoConnectionDialog();
+      }
+    }
+  }
+
+  void _showNoConnectionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('인터넷 연결 오류'),
+        content: const Text('인터넷 연결이 필요합니다.\n네트워크 연결을 확인하고 다시 시도해주세요.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              SystemNavigator.pop(); // 앱 종료
+            },
+            child: const Text('앱 종료'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _initializeAdsAndNavigate() async {
     try {
+      await VersionCheckService.initialize();
+
       // Google Mobile Ads 초기화
       await MobileAds.instance.initialize();
       logger.i("Google Mobile Ads 초기화 완료");
 
       // FCM 토큰 업데이트
       await _checkAndUpdateFCMToken();
+
+      // 스플래시 화면 종료 및 메인 화면으로 이동
+      if (mounted) {
+        Future.delayed(const Duration(seconds: 6), () async {
+          if (mounted) {
+            final canProceed =
+                await VersionCheckService.checkForUpdates(context);
+            if (canProceed && mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const MainScreen()),
+              );
+            }
+          }
+        });
+      }
     } catch (e) {
       logger.e("초기화 실패: $e");
-    }
-
-    // 스플래시 화면 종료 및 메인 화면으로 이동
-    if (mounted) {
-      Future.delayed(const Duration(seconds: 6), () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
-        );
-      });
     }
   }
 

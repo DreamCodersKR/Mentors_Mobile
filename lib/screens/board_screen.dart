@@ -9,6 +9,7 @@ import 'package:mentors_app/screens/login_screen.dart';
 import 'package:mentors_app/screens/recent_views_screen.dart';
 // import 'package:mentors_app/screens/search_screen.dart';
 import 'package:mentors_app/screens/write_board_screen.dart';
+import 'package:mentors_app/services/category_service.dart';
 import 'package:mentors_app/widgets/bottom_nav_bar.dart';
 
 class BoardScreen extends StatefulWidget {
@@ -19,21 +20,40 @@ class BoardScreen extends StatefulWidget {
 }
 
 class _BoardScreenState extends State<BoardScreen> {
-  String _selectedCategory = '전체';
+  String? _selectedCategory = '말머리 선택';
+  List<String> _categories = ['말머리 선택'];
+  bool _isLoading = true;
 
   final Logger logger = Logger();
+  final CategoryService _categoryService = CategoryService();
 
-  final List<String> _categories = [
-    '전체',
-    'IT/전문기술',
-    '예술',
-    '학업/교육',
-    '마케팅',
-    '자기개발',
-    '취업&커리어',
-    '금융/경제',
-    '기타',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final categories = await _categoryService.getBoardCategories();
+
+      setState(() {
+        _categories = categories;
+        // 카테고리 로드 후 기본값 설정
+        _selectedCategory = categories.contains('전체') ? '전체' : categories.first;
+        _isLoading = false;
+      });
+    } catch (e) {
+      logger.e('카테고리 로드 실패: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   void _navigateToWriteBoard(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -127,7 +147,7 @@ class _BoardScreenState extends State<BoardScreen> {
         .where('is_deleted', isEqualTo: false)
         .orderBy('created_at', descending: true);
 
-    if (_selectedCategory != '전체') {
+    if (_selectedCategory != null && _selectedCategory != '말머리 선택') {
       // 카테고리가 전체가 아닌 경우에만 필터링 조건 추가
       return collection
           .where('category', isEqualTo: _selectedCategory)
@@ -155,31 +175,22 @@ class _BoardScreenState extends State<BoardScreen> {
           color: Colors.black,
         ),
         actions: [
-          // IconButton(
-          //   onPressed: () {
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (context) => const SearchScreen(),
-          //       ),
-          //     );
-          //   },
-          //   icon: const Icon(Icons.search, color: Colors.black),
-          // ),
-          DropdownButton<String>(
-            value: _selectedCategory,
-            onChanged: (String? newCategory) {
-              setState(() {
-                _selectedCategory = newCategory!;
-              });
-            },
-            items: _categories.map((category) {
-              return DropdownMenuItem<String>(
-                value: category,
-                child: Text(category),
-              );
-            }).toList(),
-          ),
+          if (!_isLoading) ...[
+            DropdownButton<String>(
+              value: _selectedCategory,
+              onChanged: (String? newCategory) {
+                setState(() {
+                  _selectedCategory = newCategory!;
+                });
+              },
+              items: _categories.map((category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
+                );
+              }).toList(),
+            ),
+          ],
           IconButton(
             onPressed: () => _navigateToWriteBoard(context),
             icon: const Icon(

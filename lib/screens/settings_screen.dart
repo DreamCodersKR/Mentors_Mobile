@@ -139,7 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           SwitchListTile(
-            title: const Text("진동"),
+            title: const Text("진동 (개발중...)"),
             value: _vibrationEnabled,
             onChanged: (value) {
               setState(() {
@@ -148,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           SwitchListTile(
-            title: const Text("방해금지 시간설정"),
+            title: const Text("방해금지 시간설정 (개발중...)"),
             value: _doNotDisturbEnabled,
             onChanged: (value) {
               setState(() {
