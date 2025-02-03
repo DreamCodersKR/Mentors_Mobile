@@ -104,25 +104,28 @@ class MentorshipService {
       _logger.i('매칭 결과 데이터: $matchResult');
 
       final match = matchResult['match'] as Map<String, dynamic>;
+      final mentorId = match['mentor_id'];
+      final mentorshipId = match['mentorship_id'];
       final similarityScore = match['similarity_score'] as double;
 
-      // 멘토 요청 ID 조회
-      final mentorRequestSnapshot = await _firestore
-          .collection('mentorships')
-          .where('user_id', isEqualTo: matchResult['mentor_id'])
-          .where('category_id', isEqualTo: categoryId)
-          .where('position', isEqualTo: 'mentor')
-          .where('is_deleted', isEqualTo: false)
-          .limit(1)
-          .get();
+      _logger.i('찾으려는 mentor_id: $mentorId');
+      _logger.i('찾으려는 mentorship_id: $mentorshipId');
 
-      if (mentorRequestSnapshot.docs.isEmpty) {
+      // 멘토 정보 조회 - 특정 mentorship_id로 직접 조회
+      final mentorDoc =
+          await _firestore.collection('mentorships').doc(mentorshipId).get();
+
+      if (!mentorDoc.exists) {
         throw Exception('멘토 요청을 찾을 수 없습니다.');
       }
 
-      final mentorRequestId = mentorRequestSnapshot.docs.first.id;
-      final mentorDoc = mentorRequestSnapshot.docs.first;
-      final mentorUserId = mentorDoc.data()['user_id'];
+      final mentorData = mentorDoc.data()!;
+      final mentorUserId = mentorData['user_id'];
+
+      // mentorship_id와 user_id 일치 여부 확인
+      if (mentorUserId != mentorId) {
+        throw Exception('멘토 정보가 일치하지 않습니다.');
+      }
 
       // 멘티 정보 가져오기
       final menteeDoc =
@@ -132,7 +135,7 @@ class MentorshipService {
       // matches 컬렉션에 매칭 결과 저장
       final matchData = {
         'menteeRequest_id': menteeRequestId,
-        'mentorRequest_id': mentorRequestId,
+        'mentorRequest_id': mentorshipId,
         'mentee_id': menteeUserId,
         'mentor_id': mentorUserId,
         'category_id': categoryId,
@@ -152,7 +155,7 @@ class MentorshipService {
           status: 'matched',
         ),
         _updateMentorshipStatus(
-          mentorshipId: mentorRequestId,
+          mentorshipId: mentorshipId,
           status: 'matched',
         ),
       ]);
