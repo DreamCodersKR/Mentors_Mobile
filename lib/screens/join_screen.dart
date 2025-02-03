@@ -75,7 +75,7 @@ class _JoinScreenState extends State<JoinScreen> {
       return downloadUrl;
     } catch (e) {
       logger.e('프로필 사진 업로드 실패: $e');
-      return null;
+      return '';
     }
   }
 
@@ -112,12 +112,8 @@ class _JoinScreenState extends State<JoinScreen> {
 
         // 프로필 이미지 업로드
         profilePhotoUrl = await _uploadProfileImage(user.uid);
-        if (profilePhotoUrl == null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("프로필 사진 업로드에 실패했습니다.")),
-            );
-          }
+        if (profilePhotoUrl == null || profilePhotoUrl.isEmpty) {
+          profilePhotoUrl = '';
         }
       }
 

@@ -45,6 +45,11 @@ android {
         versionCode 1
         // versionName = flutter.versionName
         versionName "1.0"
+
+        manifestPlaceholders += [
+            enableVulkan: "false"
+        ]
+
     }
 
     buildTypes {

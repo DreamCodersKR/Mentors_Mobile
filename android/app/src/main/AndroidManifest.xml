@@ -8,7 +8,9 @@
         android:label="mentors_app"
         android:name="${applicationName}"
         android:requestLegacyExternalStorage="true"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        tools:replace="android:allowBackup">
         <service
             android:name="com.google.firebase.messaging.FirebaseMessagingService"
             android:exported="true" 
@@ -51,7 +53,7 @@
         <!-- AdMob 애플리케이션 ID 설정 -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-2097871327826696~5603016780" />
 
     </application>
     <!-- Required to query activities that can process text, see:

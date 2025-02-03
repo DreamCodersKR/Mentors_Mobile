@@ -45,7 +45,14 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     super.initState();
     _titleController.text = widget.initialTitle ?? '';
     _contentController.text = widget.initialContent ?? '';
-    _selectedCategory = widget.initialCategory ?? "말머리 선택";
+    // 초기 카테고리 설정
+    if (widget.initialCategory != null &&
+        _categories.contains(widget.initialCategory)) {
+      _selectedCategory = widget.initialCategory!;
+    } else {
+      _selectedCategory = _categories.first;
+    }
+
     _loadCategories();
   }
 
