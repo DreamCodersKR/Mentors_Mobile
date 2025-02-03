@@ -8,6 +8,7 @@ class MatchingClientService {
   final Logger _logger = Logger();
 
   Future<Map<String, dynamic>?> requestMatch({
+    required String menteeRequestId,
     required String menteeId,
     required String categoryId,
     required List<String> answers,
@@ -17,12 +18,16 @@ class MatchingClientService {
         'menteeId': menteeId,
         'categoryId': categoryId,
         'answers': answers,
+        'menteeRequestId': menteeRequestId,
       };
       _logger.i('매칭 요청 데이터: $requestBody');
 
       final response = await http.post(
         Uri.parse('$baseUrl/match'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode(requestBody),
       );
 
@@ -30,7 +35,12 @@ class MatchingClientService {
       _logger.i('매칭 요청 응답 바디: ${response.body}');
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final responseData = jsonDecode(response.body);
+        if (responseData['status'] == 'success') {
+          return responseData;
+        }
+        _logger.w('매칭 요청 실패: ${responseData['message']}');
+        return null;
       } else {
         _logger.e('매칭 요청 실패: ${response.statusCode} - ${response.body}');
         return null;

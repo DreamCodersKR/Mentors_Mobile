@@ -37,6 +37,7 @@ class MentorshipService {
       if (position == 'mentee') {
         await _processMatchingForMentee(
           menteeRequestId: docRef.id,
+          menteeId: userId,
           categoryId: categoryId,
           answers: answers,
         );
@@ -51,38 +52,34 @@ class MentorshipService {
 
   Future<void> _processMatchingForMentee({
     required String menteeRequestId,
+    required String menteeId,
     required String categoryId,
     required List<String> answers,
   }) async {
     try {
-      // 답변 텍스트만 추출
-      final answerTexts = answers;
-
       // 매칭 서버와 통신
       final matchResult = await _matchingClientService.requestMatch(
-        menteeId: menteeRequestId,
+        menteeId: menteeId,
+        menteeRequestId: menteeRequestId,
         categoryId: categoryId,
-        answers: answerTexts,
+        answers: answers,
       );
 
-      // 매칭 결과가 있는 경우
-      if (matchResult != null) {
-        // 사용자 본인과의 매칭 방지
-        if (matchResult['mentor_id'] != menteeRequestId) {
+      if (matchResult != null && matchResult.containsKey('match')) {
+        final matchData = matchResult['match'] as Map<String, dynamic>;
+        if (matchData['mentor_id'] != menteeId) {
           await _saveMatchResult(
             menteeRequestId: menteeRequestId,
             categoryId: categoryId,
             matchResult: matchResult,
           );
         } else {
-          // 자신과의 매칭인 경우 매칭 실패 처리
           await _updateMentorshipStatus(
             mentorshipId: menteeRequestId,
             status: 'failed',
           );
         }
       } else {
-        // 매칭 실패 처리
         await _updateMentorshipStatus(
           mentorshipId: menteeRequestId,
           status: 'failed',

@@ -20,7 +20,8 @@ def match():
         logger.info("매칭 요청 받음")
         data = request.get_json()
         logger.info(f"요청 데이터: {data}")
-        required_fields = ['menteeId', 'categoryId', 'answers']
+
+        required_fields = ['menteeId', 'menteeRequestId', 'categoryId', 'answers']
         
         # 필수 필드 검증
         for field in required_fields:
@@ -32,7 +33,7 @@ def match():
                 }), 400
         
         # mentorship 문서에서 실제 mentee의 user_id 조회
-        mentee_doc = firebase_service.get_mentorship_by_id(data['menteeId'])
+        mentee_doc = firebase_service.get_mentorship_by_id(data['menteeRequestId'])
         if not mentee_doc:
             logger.error("멘티 mentorship 문서를 찾을 수 없음")
             return jsonify({
@@ -40,32 +41,34 @@ def match():
                 "message": "Mentee mentorship not found"
             }), 404
 
-        # 멘티의 실제 user_id 추출
-        mentee_user_id = mentee_doc.get('user_id')
-        if not mentee_user_id:
-            logger.error("멘티 user_id를 찾을 수 없음")
+        # user_id 일치 확인
+        if mentee_doc.get('user_id') != data['menteeId']:
+            logger.error("멘티 user_id 불일치")
             return jsonify({
                 "status": "error",
-                "message": "Mentee user_id not found"
-            }), 404
-
-        mentee_answers = data['answers']
+                "message": "Invalid mentee user ID"
+            }), 400
 
         # 같은 카테고리의 멘토 목록 조회
         mentors = firebase_service.get_mentors_by_category(data['categoryId'])
         
         if not mentors:
+            logger.warning("해당 카테고리에 대기중인 멘토가 없음")
             return jsonify({
                 "status": "error",
                 "message": "No mentors found in this category"
             }), 404
 
-        # 유사도 계산 및 최적의 멘토 찾기
-        best_match = matching_service.find_best_match(mentee_answers, mentors, mentee_user_id )
+        # 최적의 멘토 찾기
+        best_match = matching_service.find_best_match(
+            data['answers'], 
+            mentors,
+            data['menteeId']
+        )
 
         if best_match:
-            # 멘티와 멘토 모두의 mentorship status를 'matched'로 업데이트
-            firebase_service.update_mentorship_status(data['menteeId'], 'matched')
+            # 매칭 상태 업데이트
+            firebase_service.update_mentorship_status(data['menteeRequestId'], 'matched')
             firebase_service.update_mentorship_status(best_match['mentorship_id'], 'matched')
 
             return jsonify({
