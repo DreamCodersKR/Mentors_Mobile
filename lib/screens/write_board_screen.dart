@@ -13,6 +13,8 @@ class WriteBoardScreen extends StatefulWidget {
   final String? initialTitle;
   final String? initialContent;
   final String? initialCategory;
+  final List<dynamic>? initialFiles;
+  // final String? initialHtmlContent;
 
   const WriteBoardScreen({
     super.key,
@@ -20,6 +22,8 @@ class WriteBoardScreen extends StatefulWidget {
     this.initialTitle,
     this.initialContent,
     this.initialCategory,
+    this.initialFiles,
+    // this.initialHtmlContent,
   });
 
   @override
@@ -34,6 +38,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
 
   final List<XFile> _attachedFiles = [];
   final List<String> _htmlImages = []; // HTML로 저장할 이미지 태그 리스트
+  final List<String> _loadedImageUrls = []; // URL 형태의 기존 이미지들
   bool isLoading = false;
   static const int maxTotalSize = 80 * 1024 * 1024;
   int _currentTotalSize = 0;
@@ -45,14 +50,18 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     super.initState();
     _titleController.text = widget.initialTitle ?? '';
     _contentController.text = widget.initialContent ?? '';
-    // 초기 카테고리 설정
-    if (widget.initialCategory != null &&
-        _categories.contains(widget.initialCategory)) {
-      _selectedCategory = widget.initialCategory!;
-    } else {
-      _selectedCategory = _categories.first;
+
+    // 기존 파일 정보 로드
+    if (widget.initialFiles != null) {
+      _loadedImageUrls.addAll(List<String>.from(widget.initialFiles!));
+      for (String fileUrl in widget.initialFiles!) {
+        _htmlImages.add('<img src="$fileUrl" alt="첨부 이미지" />');
+      }
     }
 
+    // 초기 카테고리 설정
+    _categories = ["말머리 선택"];
+    _selectedCategory = widget.initialCategory ?? "말머리 선택";
     _loadCategories();
   }
 
@@ -72,11 +81,21 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
             await categoryService.getBoardCategories(isAdmin: isAdmin);
 
         setState(() {
-          _categories = categories;
-          if (!categories.contains(_selectedCategory)) {
-            _selectedCategory = categories.first;
+          // 중복 제거 및 선택된 카테고리 추가
+          _categories = ["말머리 선택", ...categories.toSet()];
+          _categories = _categories.toSet().toList(); // 중복 제거
+
+          // 초기 선택된 카테고리 검증 및 설정
+          if (widget.initialCategory != null &&
+              _categories.contains(widget.initialCategory)) {
+            _selectedCategory = widget.initialCategory!;
+          } else {
+            _selectedCategory = _categories.first;
           }
         });
+
+        logger.i('현재 카테고리 리스트: $_categories');
+        logger.i('현재 선택된 카테고리: $_selectedCategory');
       }
     } catch (e) {
       logger.e('카테고리 로드 실패: $e');
@@ -131,6 +150,8 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
       isLoading = true;
     });
 
+    _showLoadingDialog();
+
     try {
       final uploadedFiles = await _uploadFiles(_attachedFiles);
 
@@ -139,21 +160,22 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         throw Exception('일부 파일 업로드에 실패했습니다.');
       }
 
+      // 기존 파일 URL과 새로 업로드된 파일 URL 합치기
+      final allFiles = [
+        ..._loadedImageUrls,
+        ...uploadedFiles,
+      ];
+
       final title = _titleController.text.trim();
       final content = _contentController.text.trim();
 
-      // HTML 이미지 태그 생성
-      final List<String> htmlImages = uploadedFiles
-          .map((url) => '<img src="$url" alt="첨부 이미지" />')
-          .toList();
-
-      final htmlContent = htmlImages.join('\n'); // HTML로 저장할 이미지 태그 합치기
+      final htmlContent = _htmlImages.join('\n');
 
       final Map<String, dynamic> postData = {
         "title": title,
         "content": content,
         "category": _selectedCategory,
-        "files": uploadedFiles,
+        "files": allFiles,
         "htmlContent": htmlContent, // 이미지 HTML 태그 저장
         "is_notice": _selectedCategory == '공지사항',
       };
@@ -172,8 +194,11 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("게시글이 성공적으로 작성되었습니다.")),
           );
+          Navigator.pop(context);
         }
       } else {
+        Navigator.of(context).pop();
+
         await FirebaseFirestore.instance
             .collection('boards')
             .doc(widget.boardId)
@@ -181,17 +206,37 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
           ...postData,
           "updated_at": FieldValue.serverTimestamp(),
         });
+        // 즉시 데이터 가져오기
+        final updatedDoc = await FirebaseFirestore.instance
+            .collection('boards')
+            .doc(widget.boardId)
+            .get();
+
+        final updatedData = updatedDoc.data();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("게시글이 성공적으로 수정되었습니다.")),
           );
         }
-      }
 
-      if (mounted) {
-        Navigator.pop(context);
+        // 수정된 데이터를 포함하여 pop
+        if (mounted) {
+          Navigator.pop(context, {
+            'title': updatedData?['title'] ?? title,
+            'content': updatedData?['content'] ?? content,
+            'category': updatedData?['category'] ?? _selectedCategory,
+            'files': updatedData?['files'] ?? allFiles,
+            // 'htmlContent': _htmlImages.join('\n'),
+            'htmlContent': updatedData?['htmlContent'] ?? htmlContent,
+            'likeCount': updatedData?['like_count'] ?? 0,
+          });
+        }
       }
     } catch (e) {
+      // 로딩 다이얼로그 닫기
+      Navigator.of(context).pop();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("오류 발생: $e")),
@@ -292,50 +337,121 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     }
   }
 
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("처리중..."),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildAttachedFiles() {
-    return _attachedFiles.isEmpty
+    final List<Widget> fileWidgets = [];
+
+    // 기존 이미지 표시
+    for (int i = 0; i < _loadedImageUrls.length; i++) {
+      fileWidgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  image: DecorationImage(
+                    image: NetworkImage(_loadedImageUrls[i]),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: -5,
+                top: -5,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _loadedImageUrls.removeAt(i);
+                      _htmlImages.removeAt(i);
+                    });
+                  },
+                  child: const CircleAvatar(
+                    backgroundColor: Colors.red,
+                    radius: 12,
+                    child: Icon(Icons.close, color: Colors.white, size: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 새로 추가된 이미지 표시
+    fileWidgets.addAll(
+      _attachedFiles.map((file) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  image: DecorationImage(
+                    image: FileImage(File(file.path)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: -5,
+                top: -5,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _currentTotalSize -= File(file.path).lengthSync();
+                      _attachedFiles.remove(file);
+                    });
+                  },
+                  child: const CircleAvatar(
+                    backgroundColor: Colors.red,
+                    radius: 12,
+                    child: Icon(Icons.close, color: Colors.white, size: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+    return fileWidgets.isEmpty
         ? const SizedBox.shrink()
         : SizedBox(
-            height: 120, // 스크롤 가능하도록 제한
+            height: 120,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: _attachedFiles.map((file) {
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        image: DecorationImage(
-                          image: FileImage(File(file.path)),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: -5,
-                      top: -5,
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _currentTotalSize -= File(file.path).lengthSync();
-                            _attachedFiles.remove(file);
-                          });
-                        },
-                        child: const CircleAvatar(
-                          backgroundColor: Colors.red,
-                          radius: 12,
-                          child:
-                              Icon(Icons.close, color: Colors.white, size: 16),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+              children: fileWidgets,
             ),
           );
   }
@@ -367,7 +483,9 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                value: _categories.contains(_selectedCategory)
+                    ? _selectedCategory
+                    : _categories.first,
                 decoration: const InputDecoration(
                   labelText: "말머리",
                   border: OutlineInputBorder(),

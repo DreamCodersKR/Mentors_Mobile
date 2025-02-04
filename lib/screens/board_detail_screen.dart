@@ -621,6 +621,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
           initialTitle: title,
           initialContent: content,
           initialCategory: category,
+          initialFiles: files,
         ),
       ),
     );
@@ -630,7 +631,11 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         title = updatedPostData['title'];
         content = updatedPostData['content'];
         category = updatedPostData['category'];
+        files = updatedPostData['files'];
+        _likeCount = updatedPostData['likeCount'] ?? _likeCount;
       });
+      // UI 갱신을 위해 데이터 다시 불러오기
+      _fetchBoardData();
     }
   }
 
@@ -800,11 +805,11 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
 
     logger.i('첨부 파일 개수: ${files!.length}');
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 120),
+    return SizedBox(
+      height: 120, // 적절한 높이 설정
       child: ListView.builder(
         shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(), // 스크롤 가능하게 설정
         itemCount: files?.length ?? 0,
         itemBuilder: (context, index) {
           final fileUrl = files![index];
