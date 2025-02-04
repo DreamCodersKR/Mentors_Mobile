@@ -21,13 +21,14 @@ module.exports = {
     "/lib/**/*", // Ignore built files.
     "/generated/**/*", // Ignore generated files.
   ],
-  plugins: [
-    "@typescript-eslint",
-    "import",
-  ],
+  plugins: ["@typescript-eslint", "import"],
   rules: {
-    "quotes": ["error", "double"],
+    quotes: ["error", "double"],
     "import/no-unresolved": 0,
-    "indent": ["error", 2],
+    indent: ["error", 2],
+    "require-jsdoc": "off", // 이 줄을 추가하면 JSDoc 주석 요구사항이 비활성화됩니다.
+    "no-console": "off",
+    "quote-props": ["error", "as-needed"],
+    "object-curly-spacing": ["error", "always"],
   },
 };

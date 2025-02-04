@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:mentors_app/models/notification_settings.dart';
+import 'package:mentors_app/services/notification_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,8 +14,39 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _vibrationEnabled = true;
-  bool _doNotDisturbEnabled = false;
+  // final bool _vibrationEnabled = true;
+  // final bool _doNotDisturbEnabled = false;
+
+  UserNotificationSettings _settings = UserNotificationSettings();
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationSettings();
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    final settings = await _notificationService.getNotificationSettings();
+    setState(() {
+      _settings = settings;
+    });
+  }
+
+  void _updateSettings() {
+    _notificationService.saveNotificationSettings(_settings);
+  }
+
+  String? _formatTimeOfDay(TimeOfDay? time) {
+    if (time == null) return null;
+
+    // 12시간제 포맷으로 변환
+    final hour = time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+
+    return '$hour:$minute $period';
+  }
 
   final Logger logger = Logger();
 
@@ -67,6 +100,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _showTimePicker() async {
+    // 시작 시간 선택
+    final startTime = await showTimePicker(
+      context: context,
+      initialTime: _settings.doNotDisturbStart ?? TimeOfDay.now(),
+    );
+
+    if (startTime != null) {
+      // 종료 시간 선택
+      final endTime = await showTimePicker(
+        context: context,
+        initialTime: _settings.doNotDisturbEnd ?? TimeOfDay.now(),
+      );
+
+      if (endTime != null) {
+        setState(() {
+          _settings.doNotDisturbStart = startTime;
+          _settings.doNotDisturbEnd = endTime;
+          _updateSettings();
+        });
+      }
+    }
+  }
+
   void _deleteAccount() async {
     // try {
     //   final user = FirebaseAuth.instance.currentUser;
@@ -99,14 +156,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // }
   }
 
-  void _navigateToDoNotDisturbSettings() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const DoNotDisturbSettingsScreen(),
-      ),
-    );
-  }
+  // void _navigateToDoNotDisturbSettings() {
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => const DoNotDisturbSettingsScreen(),
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -139,28 +196,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           SwitchListTile(
-            title: const Text("진동 (개발중...)"),
-            value: _vibrationEnabled,
+            title: const Text("알림"),
+            value: _settings.isNotificationEnabled,
             onChanged: (value) {
               setState(() {
-                _vibrationEnabled = value;
+                _settings.isNotificationEnabled = value;
+                _updateSettings();
               });
             },
           ),
           SwitchListTile(
-            title: const Text("방해금지 시간설정 (개발중...)"),
-            value: _doNotDisturbEnabled,
+            title: const Text("진동"),
+            value: _settings.isVibrationEnabled,
+            onChanged: _settings.isNotificationEnabled
+                ? (value) {
+                    setState(() {
+                      _settings.isVibrationEnabled = value;
+                      _updateSettings();
+                    });
+                  }
+                : null,
+          ),
+          SwitchListTile(
+            title: const Text("방해금지 시간설정"),
+            value: _settings.isDoNotDisturbEnabled,
             onChanged: (value) {
               setState(() {
-                _doNotDisturbEnabled = value;
+                _settings.isDoNotDisturbEnabled = value;
+                _updateSettings();
               });
             },
           ),
-          if (_doNotDisturbEnabled)
+          if (_settings.isDoNotDisturbEnabled)
             ListTile(
-              title: const Text("23:00~08:00"),
+              title: Text(
+                  "${_formatTimeOfDay(_settings.doNotDisturbStart) ?? '시작 시간'} ~ ${_formatTimeOfDay(_settings.doNotDisturbEnd) ?? '종료 시간'}"),
               trailing: const Icon(Icons.chevron_right),
-              onTap: _navigateToDoNotDisturbSettings,
+              onTap: _showTimePicker,
             ),
           const Divider(thickness: 1),
           ListTile(
