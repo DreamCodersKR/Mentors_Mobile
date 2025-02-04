@@ -26,16 +26,27 @@ class CategoryService {
     }
   }
 
-  Future<List<String>> getBoardCategories() async {
+  Future<List<String>> getBoardCategories({bool? isAdmin}) async {
     try {
-      final querySnapshot = await _firestore
-          .collection('categories')
-          .where('what_for', isEqualTo: 'board')
-          .get();
+      QuerySnapshot querySnapshot;
+
+      if (isAdmin == true) {
+        querySnapshot = await _firestore
+            .collection('categories')
+            .where('what_for', whereIn: ['board', 'admin']).get();
+      } else {
+        querySnapshot = await _firestore
+            .collection('categories')
+            .where('what_for', isEqualTo: 'board')
+            .get();
+      }
 
       // 카테고리 이름들을 리스트로 추출
       final categories = querySnapshot.docs
-          .map((doc) => (doc.data()['cate_name'] ?? '') as String)
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return data['cate_name'] as String? ?? '';
+          })
           .where((category) => category.isNotEmpty)
           .toList();
 

@@ -44,7 +44,8 @@ class _BoardScreenState extends State<BoardScreen> {
       setState(() {
         _categories = categories;
         // 카테고리 로드 후 기본값 설정
-        _selectedCategory = categories.contains('전체') ? '전체' : categories.first;
+        _selectedCategory =
+            categories.contains('말머리 선택') ? '말머리 선택' : categories.first;
         _isLoading = false;
       });
     } catch (e) {
@@ -144,18 +145,19 @@ class _BoardScreenState extends State<BoardScreen> {
   Stream<QuerySnapshot> _getFilteredBoards() {
     final collection = FirebaseFirestore.instance
         .collection('boards')
-        .where('is_deleted', isEqualTo: false)
-        .orderBy('created_at', descending: true);
-
-    if (_selectedCategory != null && _selectedCategory != '말머리 선택') {
-      // 카테고리가 전체가 아닌 경우에만 필터링 조건 추가
+        .where('is_deleted', isEqualTo: false);
+    // 만약 선택한 카테고리가 '전체'나 기본 선택이면 모든 게시글을 가져옴
+    if (_selectedCategory != null &&
+        _selectedCategory != '말머리 선택' &&
+        _selectedCategory != '전체') {
+      // 특정 카테고리 선택 시 필터링
       return collection
           .where('category', isEqualTo: _selectedCategory)
+          .orderBy('created_at', descending: true)
           .snapshots();
+    } else {
+      return collection.orderBy('created_at', descending: true).snapshots();
     }
-
-    // 전체인 경우 모든 데이터를 반환
-    return collection.snapshots();
   }
 
   @override
@@ -252,7 +254,17 @@ class _BoardScreenState extends State<BoardScreen> {
                   );
                 }
 
-                final boardDocs = snapshot.data!.docs;
+                List<DocumentSnapshot> boardDocs = snapshot.data!.docs;
+                // 만약 선택한 카테고리가 '전체'인 경우, 공지사항을 최상단에 배치
+                if (_selectedCategory == '말머리 선택') {
+                  final noticeDocs = boardDocs
+                      .where((doc) => doc['category'] == '공지사항')
+                      .toList();
+                  final normalDocs = boardDocs
+                      .where((doc) => doc['category'] != '공지사항')
+                      .toList();
+                  boardDocs = [...noticeDocs, ...normalDocs];
+                }
 
                 return ListView.separated(
                   itemCount: boardDocs.length,
@@ -320,13 +332,43 @@ class _BoardScreenState extends State<BoardScreen> {
                               title: Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      '[$category] $title',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                      maxLines: 2,
-                                      overflow:
-                                          TextOverflow.ellipsis, // 제목 길이 제한
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (category == '공지사항') ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
+                                            margin: const EdgeInsets.only(
+                                                bottom: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red[100],
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              '공지',
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        Text(
+                                          '[$category] $title',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: category == '공지사항'
+                                                ? Colors.red
+                                                : Colors.black,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   if (hasFiles) ...[

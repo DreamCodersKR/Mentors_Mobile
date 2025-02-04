@@ -57,16 +57,30 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
   }
 
   Future<void> _loadCategories() async {
-    final categoryService = CategoryService();
-    final categories = await categoryService.getBoardCategories();
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-    setState(() {
-      _categories = categories;
-      // 초기 카테고리가 로드된 카테고리에 없으면 첫번째 카테고리로 설정
-      if (!_categories.contains(_selectedCategory)) {
-        _selectedCategory = _categories.first;
+        final isAdmin = userDoc.data()?['role'] == 'admin';
+
+        final categoryService = CategoryService();
+        final categories =
+            await categoryService.getBoardCategories(isAdmin: isAdmin);
+
+        setState(() {
+          _categories = categories;
+          if (!categories.contains(_selectedCategory)) {
+            _selectedCategory = categories.first;
+          }
+        });
       }
-    });
+    } catch (e) {
+      logger.e('카테고리 로드 실패: $e');
+    }
   }
 
   Future<List<String>> _uploadFiles(List<XFile> files) async {
@@ -130,6 +144,7 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
         "category": _selectedCategory,
         "files": uploadedFiles,
         "htmlContent": htmlContent, // 이미지 HTML 태그 저장
+        "is_notice": _selectedCategory == '공지사항',
       };
 
       if (widget.boardId == null) {
@@ -267,43 +282,51 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
   }
 
   Widget _buildAttachedFiles() {
-    if (_attachedFiles.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _attachedFiles.map((file) {
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Image.file(
-              File(file.path),
-              width: 100,
-              height: 100,
-              fit: BoxFit.cover,
+    return _attachedFiles.isEmpty
+        ? const SizedBox.shrink()
+        : SizedBox(
+            height: 120, // 스크롤 가능하도록 제한
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: _attachedFiles.map((file) {
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        image: DecorationImage(
+                          image: FileImage(File(file.path)),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -5,
+                      top: -5,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _currentTotalSize -= File(file.path).lengthSync();
+                            _attachedFiles.remove(file);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          backgroundColor: Colors.red,
+                          radius: 12,
+                          child:
+                              Icon(Icons.close, color: Colors.white, size: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
-            Positioned(
-              right: -8,
-              top: -8,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _currentTotalSize -= File(file.path).lengthSync();
-                    _attachedFiles.remove(file);
-                  });
-                },
-                child: const CircleAvatar(
-                  backgroundColor: Colors.red,
-                  radius: 12,
-                  child: Icon(Icons.close, color: Colors.white, size: 16),
-                ),
-              ),
-            ),
-          ],
-        );
-      }).toList(),
-    );
+          );
   }
 
   @override
@@ -327,70 +350,77 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DropdownButtonFormField<String>(
-              value: _selectedCategory,
-              decoration: const InputDecoration(
-                labelText: "말머리",
-                border: OutlineInputBorder(),
-              ),
-              items: _categories.map((String category) {
-                return DropdownMenuItem<String>(
-                  value: category,
-                  child: Text(category),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedCategory = newValue!;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: "제목",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: TextField(
-                controller: _contentController,
-                maxLines: null,
-                expands: true,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButtonFormField<String>(
+                value: _selectedCategory,
                 decoration: const InputDecoration(
-                  labelText: "내용",
+                  labelText: "말머리",
+                  border: OutlineInputBorder(),
+                ),
+                items: _categories.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedCategory = newValue!;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: "제목",
                   border: OutlineInputBorder(),
                 ),
               ),
-            ),
-            const SizedBox(
-              height: 16,
-            ),
-            _buildAttachedFiles(),
-            const SizedBox(
-              height: 16,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: isLoading ? null : _pickFile,
-                  icon: const Icon(Icons.attach_file),
-                  label: const Text("파일 첨부"),
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 150, // 최소 높이 설정
+                  maxHeight: 400, // 최대 높이 설정
                 ),
-                ElevatedButton.icon(
-                  onPressed: isLoading ? null : _takePhoto,
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text("사진 촬영"),
+                child: TextField(
+                  controller: _contentController,
+                  maxLines: null,
+                  expands: true,
+                  decoration: const InputDecoration(
+                    labelText: "내용",
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(
+                height: 16,
+              ),
+              _buildAttachedFiles(),
+              const SizedBox(
+                height: 16,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: isLoading ? null : _pickFile,
+                    icon: const Icon(Icons.attach_file),
+                    label: const Text("파일 첨부"),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: isLoading ? null : _takePhoto,
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text("사진 촬영"),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

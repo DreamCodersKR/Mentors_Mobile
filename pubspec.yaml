@@ -29,6 +29,7 @@ dependencies:
   package_info_plus: ^8.1.4
   url_launcher: ^6.3.1
   firebase_analytics: ^11.4.1
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:

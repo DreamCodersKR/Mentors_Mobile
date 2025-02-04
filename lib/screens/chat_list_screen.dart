@@ -134,9 +134,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: Colors.grey,
-            backgroundImage:
-                profilePhoto != null ? NetworkImage(profilePhoto) : null,
-            child: profilePhoto == null
+            backgroundImage: (profilePhoto != null && profilePhoto.isNotEmpty)
+                ? NetworkImage(profilePhoto)
+                : null,
+            child: (profilePhoto == null || profilePhoto.isEmpty)
                 ? const Icon(Icons.person, color: Colors.white)
                 : null,
           ),
@@ -156,6 +157,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 builder: (context) => ChatRoomScreen(
                   chatRoomId: chatRoom.id,
                   userName: userNickname,
+                  userId: otherUserId,
                 ),
               ),
             );

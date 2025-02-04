@@ -82,11 +82,13 @@ class MyApp extends StatelessWidget {
 
           if (arguments is Map<String, dynamic>) {
             return ChatRoomScreen(
-              chatRoomId: arguments['chatRoomId'] as String,
-              userName: arguments['userName'] as String,
+              chatRoomId: arguments['chatRoomId'] as String? ?? '',
+              userName: arguments['userName'] as String? ?? '알 수 없음',
+              userId: arguments['userId'] as String? ?? '',
             );
           }
 
+          // 만약 arguments가 잘못된 경우, 안전한 기본값을 제공
           return const ChatListScreen();
         },
       },
