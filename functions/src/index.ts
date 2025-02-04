@@ -5,6 +5,63 @@ admin.initializeApp();
 
 const messaging = admin.messaging();
 
+// 알림 전송 전에 설정 확인 함수 추가
+async function checkNotificationSettings(
+  userId: string,
+  sendNotification: () => Promise<void>
+) {
+  const userDoc = await admin.firestore().collection("users").doc(userId).get();
+
+  const notificationSettings = userDoc.data()?.notification_settings;
+
+  // 알림 설정이 없다면 기본값으로 처리 (알림 허용)
+  if (!notificationSettings) {
+    await sendNotification();
+    return;
+  }
+
+  // 알림 비활성화 체크
+  if (!notificationSettings.isNotificationEnabled) {
+    console.log("알림이 비활성화되었습니다.");
+    return;
+  }
+
+  // 방해금지 시간 체크
+  if (notificationSettings.isDoNotDisturbEnabled) {
+    const now = new Date();
+    // const currentHour = now.getHours();
+    // const currentMinute = now.getMinutes();
+
+    const startTime = new Date(now);
+    const [startHour, startMinute] =
+      notificationSettings.doNotDisturbStart.split(":");
+    startTime.setHours(parseInt(startHour), parseInt(startMinute), 0);
+
+    const endTime = new Date(now);
+    const [endHour, endMinute] =
+      notificationSettings.doNotDisturbEnd.split(":");
+    endTime.setHours(parseInt(endHour), parseInt(endMinute), 0);
+
+    // 방해금지 시간 로직 구현
+    if (startTime <= endTime) {
+      // 같은 날짜 내 방해금지 시간
+      if (now >= startTime && now <= endTime) {
+        console.log("방해금지 시간입니다.");
+        return;
+      }
+    } else {
+      // 다음 날 자정을 넘어가는 방해금지 시간
+      if (now >= startTime || now <= endTime) {
+        console.log("방해금지 시간입니다.");
+        return;
+      }
+    }
+  }
+
+  // 모든 조건 통과 시 알림 전송
+  await sendNotification();
+}
+
 export const sendNotificationOnComment = onDocumentCreated(
   "boards/{board_id}/comments/{comment_id}",
   async (event) => {
@@ -57,9 +114,8 @@ export const sendNotificationOnComment = onDocumentCreated(
         return;
       }
 
-      const validTokens: string[] = [];
-      for (const token of fcmTokens) {
-        try {
+      await checkNotificationSettings(boardOwnerId, async () => {
+        for (const token of fcmTokens) {
           await messaging.send({
             notification: {
               title: "새로운 댓글이 달렸습니다!",
@@ -77,42 +133,8 @@ export const sendNotificationOnComment = onDocumentCreated(
             },
             token,
           });
-          validTokens.push(token);
-        } catch (error: unknown) {
-          console.error(`FCM 전송 실패 (토큰: ${token}):`, error);
-
-          if (
-            (typeof error === "object" &&
-              error !== null &&
-              "code" in error &&
-              (error as { code: string }).code ===
-                "messaging/registration-token-not-registered") ||
-            (error as { code: string }).code === "messaging/invalid-argument"
-          ) {
-            console.warn(`유효하지 않은 토큰: ${token}`);
-          }
         }
-      }
-
-      await admin.firestore().collection("users").doc(boardOwnerId).update({
-        fcm_tokens: validTokens,
       });
-
-      console.log("Firestore temp_navigation 데이터 추가");
-      await admin
-        .firestore()
-        .collection("temp_navigation")
-        .doc("pending_navigation")
-        .set({
-          screen: "BoardDetailScreen",
-          params: {
-            board_id: boardId,
-            title: boardDoc.data()?.title || "제목 없음",
-            author_uid: boardDoc.data()?.author_id || "작성자 없음",
-          },
-          processed: false,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        });
 
       console.log("알림 전송 성공!");
     } catch (error) {
@@ -139,25 +161,12 @@ export const sendNotificationOnMatchSuccess = onDocumentCreated(
     const mentorId = matchData?.mentor_id;
     const categoryId = matchData?.category_id;
 
-    if (!menteeId || !mentorId) {
+    if (!menteeId || !mentorId || !categoryId) {
       console.error("Invalid match data!");
       return;
     }
 
     try {
-      // 멘티와 멘토의 사용자 정보 조회
-      const menteeDoc = await admin
-        .firestore()
-        .collection("users")
-        .doc(menteeId)
-        .get();
-      const mentorDoc = await admin
-        .firestore()
-        .collection("users")
-        .doc(mentorId)
-        .get();
-
-      // 카테고리 정보 조회
       const categoryDoc = await admin
         .firestore()
         .collection("categories")
@@ -166,26 +175,25 @@ export const sendNotificationOnMatchSuccess = onDocumentCreated(
       const categoryName =
         categoryDoc.data()?.cate_name || "알 수 없는 카테고리";
 
-      const menteeTokens = menteeDoc.data()?.fcm_tokens || [];
-      const mentorTokens = mentorDoc.data()?.fcm_tokens || [];
+      await checkNotificationSettings(menteeId, async () => {
+        await sendMatchSuccessNotification(
+          menteeId,
+          mentorId,
+          categoryName,
+          "멘토",
+          "멘티"
+        );
+      });
 
-      // 멘티에게 보내는 알림
-      await sendMatchSuccessNotification(
-        menteeTokens,
-        mentorId,
-        categoryName,
-        "mentor",
-        "mentee"
-      );
-
-      // 멘토에게 보내는 알림
-      await sendMatchSuccessNotification(
-        mentorTokens,
-        menteeId,
-        categoryName,
-        "mentee",
-        "mentor"
-      );
+      await checkNotificationSettings(mentorId, async () => {
+        await sendMatchSuccessNotification(
+          mentorId,
+          menteeId,
+          categoryName,
+          "멘티",
+          "멘토"
+        );
+      });
 
       console.log("매칭 성공 알림 전송 완료!");
     } catch (error) {
@@ -246,13 +254,20 @@ export const sendNotificationOnChatMessage = onDocumentCreated(
         .get();
       const recipientTokens = recipientDoc.data()?.fcm_tokens || [];
 
-      // 수신자에게 알림 전송
-      await sendChatMessageNotification(
-        recipientTokens,
-        senderNickname,
-        messageContent,
-        chatId
-      );
+      if (!recipientTokens.length) {
+        console.warn(`No FCM tokens found for recipientId: ${recipientId}`);
+        return;
+      }
+
+      // 알림 전송 전에 방해 금지 설정 확인
+      await checkNotificationSettings(recipientId, async () => {
+        await sendChatMessageNotification(
+          recipientTokens,
+          senderNickname,
+          messageContent,
+          chatId
+        );
+      });
 
       console.log("채팅 메시지 알림 전송 완료!");
     } catch (error) {
@@ -263,37 +278,63 @@ export const sendNotificationOnChatMessage = onDocumentCreated(
 
 // 매칭 성공 알림 헬퍼 함수
 async function sendMatchSuccessNotification(
-  tokens: string[],
+  userId: string,
   otherUserId: string,
   categoryName: string,
   otherUserRole: string,
   recipientRole: string
 ) {
-  for (const token of tokens) {
-    try {
-      await messaging.send({
-        notification: {
-          title: "멘토링 매칭 성공!",
-          body: `${categoryName} 카테고리에서 ${otherUserRole} 매칭되었습니다.`,
-        },
-        data: {
-          action: JSON.stringify({
-            screen: "MatchDetailScreen",
-            params: {
-              user_id: otherUserId,
-              category_name: categoryName,
-              role: recipientRole,
-            },
-          }),
-        },
-        token,
-      });
-    } catch (error) {
-      console.error(`매칭 성공 알림 전송 실패 (토큰: ${token}):`, error);
+  try {
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .get();
+
+    if (!userDoc.exists) {
+      console.error(`User document not found for userId: ${userId}`);
+      return;
     }
+
+    const fcmTokens = userDoc.data()?.fcm_tokens || [];
+
+    if (!fcmTokens.length) {
+      console.warn(`No FCM tokens found for userId: ${userId}`);
+      return;
+    }
+
+    for (const token of fcmTokens) {
+      try {
+        await messaging.send({
+          notification: {
+            title: "멘토링 매칭 성공!",
+            body: `${categoryName} 카테고리에서 ${otherUserRole} 매칭되었습니다.`,
+          },
+          data: {
+            action: JSON.stringify({
+              screen: "MatchDetailScreen",
+              params: {
+                user_id: otherUserId,
+                category_name: categoryName,
+                role: recipientRole,
+              },
+            }),
+          },
+          token,
+        });
+      } catch (error) {
+        console.error(`FCM 메시지 전송 실패 (토큰: ${token}):`, error);
+      }
+    }
+
+    console.log(`매칭 성공 알림 전송 완료 (userId: ${userId})`);
+  } catch (error) {
+    console.error(
+      `sendMatchSuccessNotification 실패 (userId: ${userId}):`,
+      error
+    );
   }
 }
-
 // 채팅 메시지 알림 헬퍼 함수
 async function sendChatMessageNotification(
   tokens: string[],
