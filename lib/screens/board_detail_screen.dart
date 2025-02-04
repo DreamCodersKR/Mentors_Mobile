@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -110,31 +111,55 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   }
 
   Future<String> getDownloadDirectory() async {
-    final directory = await getExternalStorageDirectory();
-    return directory?.path ?? '/storage/emulated/0/Download';
+    if (Platform.isAndroid && await _isAndroidQOrHigher()) {
+      return '/storage/emulated/0/Download'; // Android 10 이상
+    } else {
+      final directory = await getExternalStorageDirectory();
+      return directory?.path ?? '/storage/emulated/0/Download';
+    }
   }
 
   Future<void> _downloadFile(String filePath, String filename) async {
     try {
-      // 저장소 권한 요청
-      bool hasPermission = await _requestStoragePermission();
+      await _requestPermissions();
 
-      // Android 11 이상에서는 manageExternalStorage 권한도 확인
-      if (Platform.isAndroid && !hasPermission) {
-        hasPermission = await _requestManageStoragePermission();
-      }
+      // if (Platform.isAndroid) {
+      //   // Android 13 이상
+      //   if (await _isAndroid13OrHigher()) {
+      //     // Android 13 이상: 개별 미디어 권한 요청
+      //     final imagePermission = await Permission.photos.status;
+      //     final videoPermission = await Permission.videos.status;
+      //     final audioPermission = await Permission.audio.status;
 
-      if (!hasPermission) {
-        // 권한이 없으면 메시지를 띄우고 함수 종료
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('파일 다운로드를 위해 저장소 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
-            ),
-          );
-        }
-        return;
-      }
+      //     if (imagePermission.isDenied ||
+      //         videoPermission.isDenied ||
+      //         audioPermission.isDenied) {
+      //       final result = await [
+      //         Permission.photos,
+      //         Permission.videos,
+      //         Permission.audio
+      //       ].request();
+
+      //       if (result[Permission.photos]!.isDenied ||
+      //           result[Permission.videos]!.isDenied ||
+      //           result[Permission.audio]!.isDenied) {
+      //         if (mounted) {
+      //           ScaffoldMessenger.of(context).showSnackBar(
+      //             const SnackBar(content: Text('파일 다운로드를 위해 권한이 필요합니다.')),
+      //           );
+      //         }
+      //         return;
+      //       }
+      //     }
+      //   } else {
+      //     // Android 12 이하
+      //     bool hasPermission = await _requestStoragePermission();
+      //     if (!hasPermission) {
+      //       hasPermission = await _requestManageStoragePermission();
+      //     }
+      //     if (!hasPermission) return;
+      //   }
+      // }
 
       // 다운로드 URL 가져오기
       final downloadUrl = await getDownloadUrl(filePath);
@@ -143,18 +168,26 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
         throw Exception('파일 다운로드 실패: HTTP ${response.statusCode}');
       }
 
-      // 다운로드 폴더 경로 생성
-      final directory = Directory('/storage/emulated/0/Download');
+      // 다운로드 폴더 경로 설정
+      final directory =
+          Directory('/storage/emulated/0/Download/mentors_app_files');
       if (!directory.existsSync()) {
         directory.createSync(recursive: true);
       }
 
+      // 고유한 파일명 생성 (현재 시간 + 원본 파일명)
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final sanitizedFilename =
+          filename.replaceAll(RegExp(r'[^a-zA-Z0-9.]'), '_');
+      final uniqueFilename = '${timestamp}_$sanitizedFilename';
+
+      // 파일 저장 경로
+      final savedFilePath = '${directory.path}/$uniqueFilename';
+
       // 파일 저장
-      final savedFilePath = '${directory.path}/$filename';
       final file = File(savedFilePath);
       await file.writeAsBytes(response.bodyBytes);
 
-      // 성공 메시지
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('파일 다운로드 완료: $savedFilePath')),
@@ -170,55 +203,127 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     }
   }
 
-  Future<bool> _requestStoragePermission() async {
-    final status = await Permission.storage.status;
+  // 권한 요청하는 메서드
+  Future<void> _requestPermissions() async {
+    if (Platform.isAndroid) {
+      if (await _isAndroid13OrHigher()) {
+        // Android 13 이상
+        final permissions = await [
+          Permission.photos,
+          Permission.videos,
+          Permission.audio,
+        ].request();
 
-    if (status.isGranted) {
-      return true; // 권한이 이미 허용됨
-    }
-
-    if (status.isPermanentlyDenied) {
-      // 권한이 영구적으로 거부된 경우 설정으로 안내
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('저장소 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
-          ),
-        );
-        await openAppSettings();
+        if (permissions[Permission.photos]!.isDenied ||
+            permissions[Permission.videos]!.isDenied ||
+            permissions[Permission.audio]!.isDenied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('파일 다운로드를 위해 권한이 필요합니다.')),
+            );
+          }
+          return;
+        }
+      } else {
+        // Android 12 이하
+        final status = await Permission.storage.request();
+        if (!status.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('파일 다운로드를 위해 권한이 필요합니다.')),
+            );
+          }
+          return;
+        }
       }
-      return false;
     }
-
-    // 권한 요청
-    final result = await Permission.storage.request();
-    return result.isGranted;
   }
 
-  Future<bool> _requestManageStoragePermission() async {
-    final status = await Permission.manageExternalStorage.status;
-
-    if (status.isGranted) {
-      return true; // 권한이 이미 허용됨
+  Future<bool> _isAndroidQOrHigher() async {
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      return androidInfo.version.sdkInt >= 29; // Android 10 (Q) 이상인지 확인
     }
-
-    if (status.isPermanentlyDenied) {
-      // 권한이 영구적으로 거부된 경우 설정으로 안내
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('외부 저장소 관리 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
-          ),
-        );
-        await openAppSettings();
-      }
-      return false;
-    }
-
-    // 권한 요청
-    final result = await Permission.manageExternalStorage.request();
-    return result.isGranted;
+    return false;
   }
+
+// Android 버전 체크 헬퍼 함수들
+  Future<bool> _isAndroid13OrHigher() async {
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      return androidInfo.version.sdkInt >= 33;
+    }
+    return false;
+  }
+
+// 저장소 권한 요청 함수는 계속 사용
+  // Future<bool> _requestStoragePermission() async {
+  //   final status = await Permission.storage.status;
+
+  //   if (status.isGranted) {
+  //     return true;
+  //   }
+
+  //   if (status.isPermanentlyDenied) {
+  //     if (mounted) {
+  //       // 사용자에게 권한 요청 모달 창을 먼저 보여주기
+  //       final result = await showDialog<bool>(
+  //         context: context,
+  //         builder: (context) {
+  //           return AlertDialog(
+  //             title: const Text('권한 필요'),
+  //             content:
+  //                 const Text('파일 다운로드를 위해 저장소 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
+  //             actions: [
+  //               TextButton(
+  //                 onPressed: () => Navigator.pop(context, false),
+  //                 child: const Text('취소'),
+  //               ),
+  //               TextButton(
+  //                 onPressed: () {
+  //                   openAppSettings();
+  //                   Navigator.pop(context, true);
+  //                 },
+  //                 child: const Text('설정으로 이동'),
+  //               ),
+  //             ],
+  //           );
+  //         },
+  //       );
+
+  //       return result ?? false;
+  //     }
+  //     return false;
+  //   }
+
+  //   final result = await Permission.storage.request();
+  //   return result.isGranted;
+  // }
+
+  // Future<bool> _requestManageStoragePermission() async {
+  //   final status = await Permission.manageExternalStorage.status;
+
+  //   if (status.isGranted) {
+  //     return true; // 권한이 이미 허용됨
+  //   }
+
+  //   if (status.isPermanentlyDenied) {
+  //     // 권한이 영구적으로 거부된 경우 설정으로 안내
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           content: Text('외부 저장소 관리 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
+  //         ),
+  //       );
+  //       await openAppSettings();
+  //     }
+  //     return false;
+  //   }
+
+  //   // 권한 요청
+  //   final result = await Permission.manageExternalStorage.request();
+  //   return result.isGranted;
+  // }
 
   Future<void> _addRecentView() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -689,6 +794,12 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   }
 
   Widget _buildFileList() {
+    if (files == null || files!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    logger.i('첨부 파일 개수: ${files!.length}');
+
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 120),
       child: ListView.builder(

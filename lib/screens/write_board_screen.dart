@@ -134,9 +134,20 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
     try {
       final uploadedFiles = await _uploadFiles(_attachedFiles);
 
+      // 파일 업로드 실패 시 처리
+      if (uploadedFiles.length != _attachedFiles.length) {
+        throw Exception('일부 파일 업로드에 실패했습니다.');
+      }
+
       final title = _titleController.text.trim();
       final content = _contentController.text.trim();
-      final htmlContent = _htmlImages.join('\n'); // HTML로 저장할 이미지 태그 합치기
+
+      // HTML 이미지 태그 생성
+      final List<String> htmlImages = uploadedFiles
+          .map((url) => '<img src="$url" alt="첨부 이미지" />')
+          .toList();
+
+      final htmlContent = htmlImages.join('\n'); // HTML로 저장할 이미지 태그 합치기
 
       final Map<String, dynamic> postData = {
         "title": title,
