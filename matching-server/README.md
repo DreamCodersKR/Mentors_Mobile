@@ -1,4 +1,4 @@
-## Cloud Run 을 사용한 Python 서버 구축
+## Cloud Run 을 사용한 Python 서버 구축 (새 환경에서 pull받을시 matching-server 비공개 키파일 key_folder 만들고 넣어야함)
 
 1. 새로운 디렉토리 생성
 

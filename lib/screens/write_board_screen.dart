@@ -191,13 +191,16 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
 
         await FirebaseFirestore.instance.collection('boards').add(postData);
         if (mounted) {
+          Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("게시글이 성공적으로 작성되었습니다.")),
           );
           Navigator.pop(context);
         }
       } else {
-        Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
 
         await FirebaseFirestore.instance
             .collection('boards')
@@ -235,7 +238,9 @@ class _WriteBoardScreenState extends State<WriteBoardScreen> {
       }
     } catch (e) {
       // 로딩 다이얼로그 닫기
-      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

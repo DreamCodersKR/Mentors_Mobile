@@ -16,3 +16,5 @@ For help getting started with Flutter development, view the
 samples, guidance on mobile development, and a full API reference.
 
 storage.rules 를 바꿨다면 항상 -> firebase deploy --only storage 로 업데이트해줘야함
+
+실행할때 impeller 끄는법 : flutter run --no-enable-impeller
